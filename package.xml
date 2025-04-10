@@ -10,8 +10,7 @@
   <depend>rclpy</depend>
   <depend>cv_bridge</depend>
   <depend>sensor_msgs</depend>
-  <depend>vive_tracker</depend>
-  <depend>realsense2_camera</depend>
+  <depend>realsense2_camera</depend> <!--realsense2_camera가 깔려있어야하고, realsense 관련 패키지가 local_setup.bash 명령어를 통해 시스템에 등록되어있어야함-->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

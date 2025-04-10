@@ -18,6 +18,7 @@ from meloha.real_env import (
 
 from meloha.robot_utils import (
     ImageRecorder,
+    ViveTracker
 )
 
 import cv2
@@ -43,6 +44,8 @@ def capture_one_episode(
 
     node = create_meloha_global_node('meloha')
 
+    vive_tracker = ViveTracker(node=node)
+
     env = make_real_env(
         node=node,
         setup_robots=False,
@@ -58,22 +61,153 @@ def capture_one_episode(
         print(f'Dataset already exist at \n{dataset_path}\nHint: set overwrite to True.')
         exit()
 
+    opening_ceremony()
+
     # Data collection
+    ts = env.reset(fake=True)
+    timesteps = [ts]
+    actions = []
     actual_dt_history = []
     time0 = time.time()
     DT = 1 / FPS
     for t in tqdm(range(max_timesteps)):
         t0 = time.time()
-        env.get_images()
+        action = get_action(leader_bot_left, leader_bot_right)
         t1 = time.time()
-        actual_dt_history.append([t0, t1])
+        ts = env.step(action, get_base_vel=IS_MOBILE)
+        t2 = time.time()
+        timesteps.append(ts)
+        actions.append(action)
+        actual_dt_history.append([t0, t1, t2])
         time.sleep(max(0, DT - (time.time() - t0)))
     print(f'Avg fps: {max_timesteps / (time.time() - time0)}')
 
+    # End the teleoperation
+    if gravity_compensation:
+        disable_gravity_compensation(leader_bot_left)
+        disable_gravity_compensation(leader_bot_right)
+    else:
+        torque_on(leader_bot_left)
+        torque_on(leader_bot_right)
+
+    # Open follower grippers
+    env.follower_bot_left.core.robot_set_operating_modes('single', 'gripper', 'position')
+    env.follower_bot_right.core.robot_set_operating_modes('single', 'gripper', 'position')
+    move_grippers(
+        [env.follower_bot_left, env.follower_bot_right],
+        [FOLLOWER_GRIPPER_JOINT_OPEN] * 2,
+        moving_time=0.5
+    )
+
     freq_mean = print_dt_diagnosis(actual_dt_history)
-    if freq_mean < 20:
-        print(f'\n\nfreq_mean is {freq_mean}, lower than 20, re-collecting... \n\n\n\n')
+    if freq_mean < 30:
+        print(f'\n\nfreq_mean is {freq_mean}, lower than 30, re-collecting... \n\n\n\n')
         return False
+
+    """
+    For each timestep:
+    observations
+    - images
+        - cam_high          (480, 640, 3) 'uint8'
+        - cam_low           (480, 640, 3) 'uint8'   (on Stationary)
+        - cam_left_wrist    (480, 640, 3) 'uint8'
+        - cam_right_wrist   (480, 640, 3) 'uint8'
+    - qpos                  (14,)         'float64'
+    - qvel                  (14,)         'float64'
+
+    action                  (14,)         'float64'
+    base_action             (2,)          'float64' (on Mobile)
+    """
+
+    data_dict = {
+        '/observations/qpos': [],
+        '/observations/qvel': [],
+        '/observations/effort': [],
+        '/action': [],
+    }
+    if IS_MOBILE:
+        data_dict['/base_action'] = []
+    for cam_name in camera_names:
+        data_dict[f'/observations/images/{cam_name}'] = []
+
+    # len(action): max_timesteps, len(time_steps): max_timesteps + 1
+    while actions:
+        action = actions.pop(0)
+        ts = timesteps.pop(0)
+        data_dict['/observations/qpos'].append(ts.observation['qpos'])
+        data_dict['/observations/qvel'].append(ts.observation['qvel'])
+        data_dict['/observations/effort'].append(ts.observation['effort'])
+        data_dict['/action'].append(action)
+        if IS_MOBILE:
+            data_dict['/base_action'].append(ts.observation['base_vel'])
+        for cam_name in camera_names:
+            data_dict[f'/observations/images/{cam_name}'].append(
+                ts.observation['images'][cam_name]
+            )
+
+    COMPRESS = True
+
+    if COMPRESS:
+        # JPEG compression
+        t0 = time.time()
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]  # tried as low as 20, seems fine
+        compressed_len = []
+        for cam_name in camera_names:
+            image_list = data_dict[f'/observations/images/{cam_name}']
+            compressed_list = []
+            compressed_len.append([])
+            for image in image_list:
+                # 0.02 sec # cv2.imdecode(encoded_image, 1)
+                result, encoded_image = cv2.imencode('.jpg', image, encode_param)
+                compressed_list.append(encoded_image)
+                compressed_len[-1].append(len(encoded_image))
+            data_dict[f'/observations/images/{cam_name}'] = compressed_list
+        print(f'compression: {time.time() - t0:.2f}s')
+
+        # pad so it has same length
+        t0 = time.time()
+        compressed_len = np.array(compressed_len)
+        padded_size = compressed_len.max()
+        for cam_name in camera_names:
+            compressed_image_list = data_dict[f'/observations/images/{cam_name}']
+            padded_compressed_image_list = []
+            for compressed_image in compressed_image_list:
+                padded_compressed_image = np.zeros(padded_size, dtype='uint8')
+                image_len = len(compressed_image)
+                padded_compressed_image[:image_len] = compressed_image
+                padded_compressed_image_list.append(padded_compressed_image)
+            data_dict[f'/observations/images/{cam_name}'] = padded_compressed_image_list
+        print(f'padding: {time.time() - t0:.2f}s')
+
+    # HDF5
+    t0 = time.time()
+    with h5py.File(dataset_path + '.hdf5', 'w', rdcc_nbytes=1024**2*2) as root:
+        root.attrs['sim'] = False
+        root.attrs['compress'] = COMPRESS
+        obs = root.create_group('observations')
+        image = obs.create_group('images')
+        for cam_name in camera_names:
+            if COMPRESS:
+                _ = image.create_dataset(cam_name, (max_timesteps, padded_size), dtype='uint8',
+                                         chunks=(1, padded_size), )
+            else:
+                _ = image.create_dataset(cam_name, (max_timesteps, 480, 640, 3), dtype='uint8',
+                                         chunks=(1, 480, 640, 3), )
+        _ = obs.create_dataset('qpos', (max_timesteps, 14))
+        _ = obs.create_dataset('qvel', (max_timesteps, 14))
+        _ = obs.create_dataset('effort', (max_timesteps, 14))
+        _ = root.create_dataset('action', (max_timesteps, 14))
+        if IS_MOBILE:
+            _ = root.create_dataset('base_action', (max_timesteps, 2))
+
+        for name, array in data_dict.items():
+            root[name][...] = array
+
+        if COMPRESS:
+            _ = root.create_dataset('compress_len', (len(camera_names), max_timesteps))
+            root['/compress_len'][...] = compressed_len
+
+    print(f'Saving: {time.time() - t0:.1f} secs')
 
     robot_shutdown()
     return True

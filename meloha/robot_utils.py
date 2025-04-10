@@ -18,7 +18,7 @@ from meloha.robot import (
 )
 
 from meloha.manipulator import Manipulator
-# from vive_tracker.vive_tracker_node import ViveTrackerNode
+from meloha.vive_tracker import ViveTrackerUpdater, ViveTrackerModule, vr_tracked_device
 
 from cv_bridge import CvBridge
 import numpy as np
@@ -50,7 +50,6 @@ class ImageRecorder:
             else:
                 raise NotImplementedError
             topic = COLOR_IMAGE_TOPIC_NAME.format(cam_name)
-            print(topic)
             node.create_subscription(Image, topic, callback_func, 20)
             if self.is_debug:
                 setattr(self, f'{cam_name}_timestamps', deque(maxlen=50))
@@ -144,6 +143,80 @@ class Recorder:
 
         print(f'{joint_freq=:.2f}\n{arm_command_freq=:.2f}\n')
 
+class ViveTracker:
+    def __init__(
+        self,
+        is_debug: bool = False,
+        node: Node = None,
+    ):
+        self.is_debug = is_debug
+        self.node = node
+
+        # VIVE Tracker 모듈 초기화
+        self.vive_tracker = ViveTrackerModule()
+        self.vive_tracker.print_discovered_objects()
+
+        # 디바이스 할당
+        tracker_1: vr_tracked_device = self.vive_tracker.devices.get("tracker_1")
+        tracker_2: vr_tracked_device = self.vive_tracker.devices.get("tracker_2")
+
+        # 시리얼 넘버 읽기
+        tracker_1_serial_number = tracker_1.get_serial()
+        tracker_2_serial_number = tracker_2.get_serial()
+
+        # 미리 지정된 시리얼 넘버 (A: left, B: right)
+        LEFT_TRACKER_SERIAL = "A"
+        RIGHT_TRACKER_SERIAL = "B" 
+
+        # 트래커 배정
+        if tracker_1_serial_number == LEFT_TRACKER_SERIAL:
+            self.tracker_left = tracker_1
+            self.tracker_right = tracker_2
+        elif tracker_1_serial_number == RIGHT_TRACKER_SERIAL:
+            self.tracker_left = tracker_2
+            self.tracker_right = tracker_1
+        else:
+            raise ValueError("Tracker serial numbers do not match expected values.")
+
+
+        if not self.tracker_left or not self.tracker_right:
+            raise Exception("Trackers not found properly.")
+
+        # 최신 pose 저장할 변수
+        self.left_pose = None  # [x, y, z, qx, qy, qz, qw]
+        self.right_pose = None
+
+        # 1.0/30초 (약 33ms) 주기로 update_tracker_position 호출하는 Timer 설정
+        self.node.create_timer(1.0 / 30.0, self.update_tracker_position)
+
+        time.sleep(0.5)  # 안정화용
+
+    def update_tracker_position(self):
+        # 트래커 데이터 가져오기
+        left_pose = self.tracker_left.get_pose()
+        right_pose = self.tracker_right.get_pose()
+
+        if left_pose:
+            self.left_pose = left_pose
+            if self.is_debug:
+                self.node.get_logger().info(f"[ViveTracker] Updated left pose: {left_pose}")
+
+        if right_pose:
+            self.right_pose = right_pose
+            if self.is_debug:
+                self.node.get_logger().info(f"[ViveTracker] Updated right pose: {right_pose}")
+
+    def get_left_pose(self):
+        """현재 최신 left pose를 반환"""
+        return self.left_pose
+
+    def get_right_pose(self):
+        """현재 최신 right pose를 반환"""
+        return self.right_pose
+
+
+        
+
 def get_arm_joint_positions(bot: Manipulator):
     return bot.arm.core.joint_states.position[:6]
 
@@ -220,6 +293,8 @@ def torque_on(bot: Manipulator):
     bot.core.robot_torque_enable('single', 'gripper', True)
 
 
+
+
 def test_image_recorder():
 
     """
@@ -263,6 +338,32 @@ def test_image_recorder():
 #     if node is None:
 #         node = create_meloha_global_node('meloha')
 #     joint_recorder = Recorder(node=node,)
+
+def test_vive_recorder():
+
+    """
+        For testing if vive tracker3.0 is communicated well.
+    """
+
+    node = create_meloha_global_node('meloha')
+    vive_tracker = ViveTracker(node=node)
+
+    # start up global node
+    robot_startup(node)
+
+    # Wait for until ImageRecorder is ready!
+    time.sleep(5)
+
+    node.get_logger().info("vive tracker is started!")
+
+    while True:
+        node.get_logger().info(f"left_pose : {vive_tracker.left_pose}")
+        node.get_logger().info(f"right_pose : {vive_tracker.right_pose}")
+
+        time.sleep(1.0/30.0)
+
+    
+    robot_shutdown(node)
 
 if __name__ == "__main__":
     test_image_recorder()
