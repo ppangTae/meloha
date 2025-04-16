@@ -8,11 +8,13 @@ from meloha.constants import (
 )
 
 from meloha.robot_utils import (
+    ViveTracker,
     ImageRecorder,
     move_arms,
     Recorder,
     setup_follower_bot,
     setup_leader_tracker,
+    solve_inverse_kinematics,
 )
 
 from meloha.manipulator import Manipulator
@@ -24,11 +26,9 @@ from meloha.robot import (
     MelohaRobotNode,
 )
 
-from vive_tracker.vive_tracker_node import ViveTrackerNode
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 class RealEnv:
     
@@ -55,12 +55,9 @@ class RealEnv:
     def __init__(
         self,
         node: MelohaRobotNode,
-        setup_robots: bool = True,
     ):
-        """Initialize the Real Robot Environment
-
-        :param node: The MelohaRobotNode to build the Meloha API on
-        :param setup_robots: True to run through the arm setup process on init, defaults to True
+        """
+            Initialize the Real Robot Environment
         """
         self.follower_bot_left = Manipulator(
             robot_name='follower_left',
@@ -75,12 +72,6 @@ class RealEnv:
         self.recorder_right = Recorder('right', node=node)
         self.image_recorder = ImageRecorder(node=node)
 
-        if setup_robots:
-            self.setup_robots()
-
-    def setup_robots(self):
-        setup_follower_bot(self.follower_bot_left)
-        setup_follower_bot(self.follower_bot_right)
 
     def get_qpos(self):
         left_arm_qpos = self.recorder_left.qpos
@@ -92,70 +83,35 @@ class RealEnv:
     def get_images(self):
         return self.image_recorder.get_images()
 
-    def _reset_joints(self):
-        left_reset_position = START_LEFT_ARM_POSE
-        right_reset_position = START_RIGHT_ARM_POSE
-        move_arms(
-            [self.bot_left, self.bot_right],
-            [left_reset_position, right_reset_position],
-            moving_time=1.0,
-        )
-
     def get_observation(self):
         obs = collections.OrderedDict()
         obs['qpos'] = self.get_qpos()
         obs['images'] = self.get_images()
         return obs
 
-    def get_reward(self):
-        return 0
-
-    def reset(self, fake=False):
-        if not fake:
-            # Reboot follower robot gripper motors
-            self.follower_bot_left.robot_reboot_motors('single', 'gripper', True)
-            self.follower_bot_right.robot_reboot_motors('single', 'gripper', True)
-            self._reset_joints()
-        return dm_env.TimeStep(
-            step_type=dm_env.StepType.FIRST,
-            reward=self.get_reward(),
-            discount=None,
-            observation=self.get_observation(),
-        )
-
-    def step(self, action, base_action=None, get_base_vel=False, get_obs=True):
+    def step(self, action, get_obs=True):
         state_len = int(len(action) / 2)
         left_action = action[:state_len]
         right_action = action[state_len:]
-        self.follower_bot_left.arm.set_joint_positions(left_action[:6], blocking=False)
-        self.follower_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
-
+        self.follower_bot_left.set_joint_positions(left_action, blocking=False)
+        self.follower_bot_right.set_joint_positions(right_action, blocking=False)
         if get_obs:
-            obs = self.get_observation(get_base_vel)
+            obs = self.get_observation()
         else:
             obs = None
-        return dm_env.TimeStep(
-            step_type=dm_env.StepType.MID,
-            reward=self.get_reward(),
-            discount=None,
-            observation=obs)
-
+        return obs
 
 def get_action(
-    leader_tracker_left: ViveTrackerNode,
-    leader_tracker_right: ViveTrackerNode
+    follower_bot_left: Manipulator,
+    follower_bot_right: Manipulator,
 ):
-    action = np.zeros(6)  # 3 joint, 2 arm
-    # Arm actions
-    action[:3] = leader_tracker_left.core.joint_states.position[:3]
-    action[3:] = leader_tracker_right.core.joint_states.position[:3]
-
+    action = np.zeros(6)    
+    action[:3] = follower_bot_left.arm_command
+    action[3:] = follower_bot_right.arm_command    
     return action
-
 
 def make_real_env(
     node: MelohaRobotNode = None,
-    setup_robots: bool = True,
 ):
     if node is None:
         node = get_meloha_global_node()
@@ -163,62 +119,8 @@ def make_real_env(
             node = create_meloha_global_node('meloha')
     env = RealEnv(
         node=node,
-        setup_robots=setup_robots,
     )
     return env
-
-
-def test_real_teleop():
-    """
-    Test bimanual teleoperation and show image observations onscreen.
-
-    It first reads joint poses from both leader arms.
-    Then use it as actions to step the environment.
-    The environment returns full observations including images.
-
-    An alternative approach is to have separate scripts for teleop and observation recording.
-    This script will result in higher fidelity (obs, action) pairs
-    """
-    onscreen_render = True
-    render_cam = 'cam_left_wrist'
-
-    node = get_meloha_global_node()
-
-    # source of data
-    leader_tracker_left = ViveTrackerNode(
-        robot_model='wx250s',
-        robot_name='leader_left',
-        node=node,
-    )
-    leader_tracker_right = ViveTrackerNode(
-        robot_model='wx250s',
-        robot_name='leader_right',
-        node=node,
-    )
-    setup_leader_tracker(leader_tracker_left)
-    setup_leader_tracker(leader_tracker_right)
-
-    # environment setup
-    env = make_real_env(node=node)
-    ts = env.reset(fake=True)
-    episode = [ts]
-    # visualization setup
-    if onscreen_render:
-        ax = plt.subplot()
-        plt_img = ax.imshow(ts.observation['images'][render_cam])
-        plt.ion()
-
-    for _ in range(1000):
-        action = get_action(leader_tracker_left, leader_tracker_right)
-        ts = env.step(action)
-        episode.append(ts)
-
-        if onscreen_render:
-            plt_img.set_data(ts.observation['images'][render_cam])
-            plt.pause(DT)
-        else:
-            time.sleep(DT)
-
 
 if __name__ == '__main__':
     test_real_teleop()

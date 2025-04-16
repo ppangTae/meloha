@@ -1,0 +1,13 @@
+dh_params:
+  joint1:
+    alpha: 90
+    a: 0
+    d: 200
+  joint2:
+    alpha: 0
+    a: 300
+    d: 0
+  joint3:
+    alpha: 0
+    a: 300
+    d: 0

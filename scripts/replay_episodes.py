@@ -32,7 +32,7 @@ def main(args):
     with h5py.File(dataset_path, 'r') as root:
         actions = root['/action'][()]
 
-    node = create_meloha_global_node('aloha')
+    node = create_meloha_global_node('meloha')
 
     env = make_real_env(node, setup_robots=False)
 

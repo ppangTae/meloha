@@ -25,21 +25,10 @@ def load_hdf5(dataset_dir, dataset_name):
     with h5py.File(dataset_path, 'r') as root:
         compressed = root.attrs.get('compress', False)
         qpos = root['/observations/qpos'][()]
-        qvel = root['/observations/qvel'][()]
-        if 'effort' in root.keys():
-            effort = root['/observations/effort'][()]
-        else:
-            effort = None
         action = root['/action'][()]
-        if IS_MOBILE:
-            base_action = root['/base_action'][()]
-        else:
-            base_action = None
         image_dict = {}
         for cam_name in root['/observations/images/'].keys():
             image_dict[cam_name] = root[f'/observations/images/{cam_name}'][()]
-        # if compressed:
-        #     compress_len = root['/compress_len'][()]
 
     if compressed:
         for cam_id, cam_name in enumerate(image_dict.keys()):
@@ -55,7 +44,7 @@ def load_hdf5(dataset_dir, dataset_name):
                 image_list.append(image)
             image_dict[cam_name] = image_list
 
-    return qpos, qvel, effort, action, base_action, image_dict
+    return qpos, action, image_dict
 
 
 def main(args):
@@ -67,7 +56,7 @@ def main(args):
     else:
         dataset_name = f'episode_{episode_idx}'
 
-    qpos, _, _, action, base_action, image_dict = load_hdf5(dataset_dir, dataset_name)
+    qpos, action, image_dict = load_hdf5(dataset_dir, dataset_name)
     print('hdf5 loaded!')
     save_videos(
         image_dict,
@@ -79,11 +68,6 @@ def main(args):
         action,
         plot_path=os.path.join(dataset_dir, dataset_name + '_qpos.png')
     )
-    if IS_MOBILE:
-        visualize_base(
-            base_action,
-            plot_path=os.path.join(dataset_dir, dataset_name + '_base_action.png')
-        )
 
 
 def save_videos(video, dt, video_path=None):

@@ -22,9 +22,10 @@ try:
 except ImportError:
     pass
 
-JOINT_NAMES = ['joint1', 'joint2', 'joint3']
-START_LEFT_ARM_POSE = []
-START_RIGHT_ARM_POSE = []
+LEFT_ARM_JOINT_NAMES = ['left_joint1', 'left_joint2', 'left_joint3']
+RIGHT_ARM_JOINT_NAMES = ['right_joint1', 'right_joint2', 'right_joint3']
+START_LEFT_ARM_POSE = [0, 0, 0]
+START_RIGHT_ARM_POSE = [0, 0, 0]
 
 ### Real hardware task configurations
 TASK_CONFIGS = {

@@ -18,12 +18,13 @@ from meloha.robot import (
 )
 
 from meloha.manipulator import Manipulator
-from meloha.vive_tracker import ViveTrackerUpdater, ViveTrackerModule, vr_tracked_device
+from meloha.vive_tracker import ViveTrackerModule, vr_tracked_device
 
 from cv_bridge import CvBridge
 import numpy as np
 from rclpy.node import Node
 from sensor_msgs.msg import Image, JointState
+from geometry_msgs.msg import PoseStamped
 
 class ImageRecorder:
 
@@ -107,9 +108,7 @@ class Recorder:
         self.secs = None
         self.nsecs = None
         self.qpos = None
-        self.effort = None
         self.arm_command = None
-        self.gripper_command = None
         self.is_debug = is_debug
 
         node.create_subscription(
@@ -118,16 +117,26 @@ class Recorder:
             self.follower_state_cb,
             10,
         )
+
+        # node.create_subscription(
+        #     JointGroupCommand,
+        #     f'/follower_{side}/commands/joint_group',
+        #     self.follower_arm_commands_cb,
+        #     10,
+        # )
+
         if self.is_debug:
             self.joint_timestamps = deque(maxlen=50)
             self.arm_command_timestamps = deque(maxlen=50)
-            self.gripper_command_timestamps = deque(maxlen=50)
         time.sleep(0.1)
+
+    # def follower_arm_commands_cb(self, data: JointGroupCommand):
+    #     self.arm_command = data.cmd
+    #     if self.is_debug:
+    #         self.arm_command_timestamps.append(time.time())
 
     def follower_state_cb(self, data: JointState):
         self.qpos = data.position
-        self.qvel = data.velocity
-        self.effort = data.effort
         self.data = data
         if self.is_debug:
             self.joint_timestamps.append(time.time())
@@ -163,6 +172,8 @@ class ViveTracker:
         # 시리얼 넘버 읽기
         tracker_1_serial_number = tracker_1.get_serial()
         tracker_2_serial_number = tracker_2.get_serial()
+        self.node.get_logger().debug(f"tracker1 founded : {tracker_1_serial_number}")
+        self.node.get_logger().debug(f"tracker2 founded : {tracker_2_serial_number}")
 
         # 미리 지정된 시리얼 넘버 (A: left, B: right)
         LEFT_TRACKER_SERIAL = "A"
@@ -182,43 +193,62 @@ class ViveTracker:
         if not self.tracker_left or not self.tracker_right:
             raise Exception("Trackers not found properly.")
 
-        # 최신 pose 저장할 변수
-        self.left_pose = None  # [x, y, z, qx, qy, qz, qw]
-        self.right_pose = None
+        # position 변위를 게산하기 위한 멤버변수
+        self.previous_left_position: list = self.tracker_left.get_pose_euler() # [x, y, z, yaw, pitch, roll]
+        self.current_left_position = None
+        self.previous_right_position: list = self.tracker_right.get_pose_euler()
+        self.current_right_position = None
+
+        self.left_arm_displacement_publisher = node.create_publisher(PoseStamped, '/follower_left/displacement', 10)
+        self.right_arm_displacement_publisher = node.create_publisher(PoseStamped, '/follower_right/displacement', 10)
 
         # 1.0/30초 (약 33ms) 주기로 update_tracker_position 호출하는 Timer 설정
         self.node.create_timer(1.0 / 30.0, self.update_tracker_position)
 
-        time.sleep(0.5)  # 안정화용
+        self.node.get_logger().info("VIVE Tracker is connected well!")
 
     def update_tracker_position(self):
-        # 트래커 데이터 가져오기
-        left_pose = self.tracker_left.get_pose()
-        right_pose = self.tracker_right.get_pose()
 
-        if left_pose:
-            self.left_pose = left_pose
-            if self.is_debug:
-                self.node.get_logger().info(f"[ViveTracker] Updated left pose: {left_pose}")
+        self.previous_left_position = self.current_left_position
+        self.previous_right_position = self.current_right_position
 
-        if right_pose:
-            self.right_pose = right_pose
-            if self.is_debug:
-                self.node.get_logger().info(f"[ViveTracker] Updated right pose: {right_pose}")
+        self.current_left_position = self.tracker_left.get_pose_euler()
+        self.current_right_position = self.tracker_right.get_pose_euler()
 
-    def get_left_pose(self):
-        """현재 최신 left pose를 반환"""
-        return self.left_pose
+        if self.is_debug:
+            self.node.get_logger().debug(f"[ViveTracker] Updated right pose: {self.current_right_position}")
 
-    def get_right_pose(self):
-        """현재 최신 right pose를 반환"""
-        return self.right_pose
+        if self.is_debug:
+            self.node.get_logger().info(f"[ViveTracker] Updated right pose: {self.current_left_position}")
+        
+        self.publish_displacement()
 
+    def publish_displacement(self):
+
+        left_displacement = self.current_left_position - self.previous_left_position
+        right_displacement = self.current_right_position - self.previous_right_position
+
+        left_displacement_msg = PoseStamped()
+        right_displacement_msg = PoseStamped()
+
+        now = self.node.get_clock().now()
+
+        left_displacement_msg.pose.position.x = left_displacement[0]
+        left_displacement_msg.pose.position.y = left_displacement[1]
+        left_displacement_msg.pose.position.z = left_displacement[2]
+        left_displacement_msg.header.stamp = now.to_msg()
+
+        right_displacement_msg.pose.position.x = right_displacement[0]
+        right_displacement_msg.pose.position.y = right_displacement[1]
+        right_displacement_msg.pose.position.z = right_displacement[2]
+        right_displacement_msg.header.stamp = now.to_msg()
+
+        self.left_arm_displacement_publisher.publish(left_displacement_msg)
+        self.right_arm_displacement_publisher.publish(right_displacement_msg)
 
         
-
 def get_arm_joint_positions(bot: Manipulator):
-    return bot.arm.core.joint_states.position[:6]
+    return bot.joint_states.position
 
 def move_arms(
     bot_list: Sequence[Manipulator],
@@ -233,66 +263,8 @@ def move_arms(
     ]
     for t in range(num_steps):
         for bot_id, bot in enumerate(bot_list):
-            bot.arm.set_joint_positions(traj_list[bot_id][t], blocking=False)
+            bot.set_joint_positions(traj_list[bot_id][t], blocking=False)
         time.sleep(DT)
-
-
-def sleep_arms(
-    bot_list: Sequence[Manipulator],
-    moving_time: float = 5.0,
-    home_first: bool = True,
-) -> None:
-    """Command given list of arms to their sleep poses, optionally to their home poses first.
-
-    :param bot_list: List of bots to command to their sleep poses
-    :param moving_time: Duration in seconds the movements should take, defaults to 5.0
-    :param home_first: True to command the arms to their home poses first, defaults to True
-    """
-    if home_first:
-        move_arms(
-            bot_list,
-            [[0.0, -0.96, 1.16, 0.0, -0.3, 0.0]] * len(bot_list),
-            moving_time=moving_time
-        )
-    move_arms(
-        bot_list,
-        [bot.arm.group_info.joint_sleep_positions for bot in bot_list],
-        moving_time=moving_time,
-    )
-
-def setup_follower_bot(bot: Manipulator):
-    bot.core.robot_reboot_motors('single', 'gripper', True)
-    bot.core.robot_set_operating_modes('group', 'arm', 'position')
-    bot.core.robot_set_operating_modes('single', 'gripper', 'current_based_position')
-    torque_on(bot)
-
-
-def setup_leader_tracker(tracker: ViveTrackerNode):
-    tracker.core.robot_set_operating_modes('group', 'arm', 'pwm')
-    tracker.core.robot_set_operating_modes('single', 'gripper', 'current_based_position')
-    torque_off(tracker)
-
-
-def set_standard_pid_gains(bot: Manipulator):
-    bot.core.robot_set_motor_registers('group', 'arm', 'Position_P_Gain', 800)
-    bot.core.robot_set_motor_registers('group', 'arm', 'Position_I_Gain', 0)
-
-
-def set_low_pid_gains(bot: Manipulator):
-    bot.core.robot_set_motor_registers('group', 'arm', 'Position_P_Gain', 100)
-    bot.core.robot_set_motor_registers('group', 'arm', 'Position_I_Gain', 0)
-
-
-def torque_off(bot: Manipulator):
-    bot.core.robot_torque_enable('group', 'arm', False)
-    bot.core.robot_torque_enable('single', 'gripper', False)
-
-
-def torque_on(bot: Manipulator):
-    bot.core.robot_torque_enable('group', 'arm', True)
-    bot.core.robot_torque_enable('single', 'gripper', True)
-
-
 
 
 def test_image_recorder():
@@ -339,7 +311,7 @@ def test_image_recorder():
 #         node = create_meloha_global_node('meloha')
 #     joint_recorder = Recorder(node=node,)
 
-def test_vive_recorder():
+def test_vive_tracker():
 
     """
         For testing if vive tracker3.0 is communicated well.
@@ -351,7 +323,7 @@ def test_vive_recorder():
     # start up global node
     robot_startup(node)
 
-    # Wait for until ImageRecorder is ready!
+    # Wait for until Vive Tracker is ready!
     time.sleep(5)
 
     node.get_logger().info("vive tracker is started!")
@@ -362,7 +334,6 @@ def test_vive_recorder():
 
         time.sleep(1.0/30.0)
 
-    
     robot_shutdown(node)
 
 if __name__ == "__main__":

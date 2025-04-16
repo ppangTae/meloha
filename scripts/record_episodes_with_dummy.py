@@ -10,8 +10,6 @@ from meloha.constants import (
     DT,
     FPS,
     TASK_CONFIGS,
-    START_RIGHT_ARM_POSE,
-    START_LEFT_ARM_POSE,
 )
 
 from meloha.real_env import (
@@ -21,8 +19,7 @@ from meloha.real_env import (
 
 from meloha.robot_utils import (
     ImageRecorder,
-    ViveTracker,
-    move_arms,
+    ViveTracker
 )
 
 from meloha.manipulator import (
@@ -36,22 +33,12 @@ from meloha.robot import (
     robot_shutdown,
     robot_startup,
 )
+
+from geometry_msgs.msg import PoseStamped
+
 import numpy as np
 import rclpy
 from tqdm import tqdm
-
-def opening_ceremony(
-    follower_bot_left: Manipulator,
-    follower_bot_right: Manipulator,
-):
-    # move arms to starting position
-    move_arms(
-        [follower_bot_left, follower_bot_right],
-        [START_LEFT_ARM_POSE, START_RIGHT_ARM_POSE],
-        moving_time=1.5,
-    )
-
-    print('Started!')
 
 def capture_one_episode(
     dt,
@@ -65,14 +52,19 @@ def capture_one_episode(
 
     node = create_meloha_global_node('meloha')
 
-    vive_tracker = ViveTracker(node=node)
-
     env = make_real_env(
         node=node,
         setup_robots=False,
     )
 
     robot_startup(node)
+
+    # ! Hardcoding
+    # csv file에서 조인트 값 들고오기
+    left_joint_csv_path = '/home/park/meloha_ws/src/meloha/joint_data/path_L.csv'
+    right_joint_csv_path = '/home/park/meloha_ws/src/meloha/joint_data/path_R.csv'
+    left_joint_commands = np.loadtxt(left_joint_csv_path, delimiter=',')
+    right_joint_commands = np.loadtxt(right_joint_csv_path, delimiter= ',')
 
     # saving dataset
     if not os.path.isdir(dataset_dir):
@@ -82,8 +74,6 @@ def capture_one_episode(
         print(f'Dataset already exist at \n{dataset_path}\nHint: set overwrite to True.')
         exit()
 
-    opening_ceremony(env.follower_bot_left, env.follower_bot_right)
-
     # Data collection
     obs = env.get_observation()
     observations = [obs]
@@ -91,9 +81,9 @@ def capture_one_episode(
     actual_dt_history = []
     time0 = time.time()
     DT = 1 / FPS
-    for t in tqdm(range(max_timesteps)):
+    for t in tqdm(range(len(left_joint_commands))):
         t0 = time.time()
-        action = get_action(env.follower_bot_left, env.follower_bot_right)
+        action = np.concatenate([left_joint_commands[t], right_joint_commands[t]])
         t1 = time.time()
         obs = env.step(action)
         t2 = time.time()
@@ -116,10 +106,8 @@ def capture_one_episode(
         - cam_left_wrist    (480, 640, 3) 'uint8'
         - cam_right_wrist   (480, 640, 3) 'uint8'
     - qpos                  (14,)         'float64'
-    - qvel                  (14,)         'float64'
 
     action                  (14,)         'float64'
-    base_action             (2,)          'float64' (on Mobile)
     """
 
     data_dict = {
@@ -206,7 +194,7 @@ def capture_one_episode(
 
 
 def main(args: dict):
-    # task_config = TASK_CONFIGS[args['meloha_box_picking']]
+
     task_config = TASK_CONFIGS['meloha_box_picking']
     dataset_dir = task_config['dataset_dir']
     max_timesteps = task_config['episode_len']
@@ -220,15 +208,17 @@ def main(args: dict):
 
     dataset_name = f'episode_{episode_idx}'
     print(dataset_name + '\n')
-
-    is_healthy = capture_one_episode(
-        DT,
-        max_timesteps,
-        camera_names,
-        dataset_dir,
-        dataset_name,
-        overwrite,
-    )
+    while True:
+        is_healthy = capture_one_episode(
+            DT,
+            max_timesteps,
+            camera_names,
+            dataset_dir,
+            dataset_name,
+            overwrite,
+        )
+        if is_healthy:
+            break
 
 
 def get_auto_index(dataset_dir, dataset_name_prefix='', data_suffix='hdf5'):
