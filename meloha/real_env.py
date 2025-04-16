@@ -120,6 +120,7 @@ def make_real_env(
     env = RealEnv(
         node=node,
     )
+    node.get_logger().info("Environment class is initialized!")
     return env
 
 if __name__ == '__main__':
