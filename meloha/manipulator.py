@@ -66,6 +66,7 @@ class Manipulator:
             qos_profile=10,
             callback_group=cb_group_dxl_core
         )
+        node.get_logger().info(f"Manipulator follower {side} joint commands publisher is created!")
 
         # Dynamixel에서 오는 joint state를 받기 위한 subscriber
         self.sub_joint_states = self.robot_node.create_subscription(
@@ -75,6 +76,7 @@ class Manipulator:
             qos_profile=10,
             callback_group=cb_group_dxl_core,
         )
+        node.get_logger().info(f"Manipulator follower {side} joint states subscriber is created!")
 
         # VIVE Tracker로부터 변위를 받는 subscriber
         # 변위를 받자마자 cb를 통해 역기구학을 풀어 변위만큼 이동하기 위한 joint 각도를 알아낸다.
@@ -85,6 +87,7 @@ class Manipulator:
             qos_profile=10,
             callback_group=cb_group_kinematics
         )
+        node.get_logger().info(f"Manipulator follower {side} displacement subscriber is created!")
 
         self.robot_node.get_logger().debug(
             f'Trying to find joint states on topic "follwer_{side}/joint_states"...'
@@ -92,6 +95,8 @@ class Manipulator:
         while self.joint_states is None and rclpy.ok():
             rclpy.spin_once(self.robot_node)
         self.robot_node.get_logger().debug('Found joint states. Continuing...')
+
+        node.get_logger().info(f"Manipulator {side} is created well!")
         
     def sub_tracker_displacement_cb(self, msg):
         dx, dy, dz = msg.pose.position.x, msg.pose.position.y, msg.pose.position.z

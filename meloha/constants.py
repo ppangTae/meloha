@@ -47,7 +47,7 @@ TASK_CONFIGS = {
     # },
 
     'meloha_box_picking' : {
-        'datset_dir': DATA_DIR + '/meloha_box_picking',
+        'dataset_dir': DATA_DIR + '/meloha_box_picking',
         'episode_len' : 300,
         'camera_names' : ['cam_high', 'cam_left_wrist', 'cam_right_wrist']
     }

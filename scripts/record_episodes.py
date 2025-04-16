@@ -275,7 +275,7 @@ if __name__ == '__main__':
         type=str,
         help='Task name.',
         default="meloha_box_picking",
-        required=True,
+        required=False,
     )
     parser.add_argument(
         '--episode_idx',

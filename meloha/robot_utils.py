@@ -52,6 +52,10 @@ class ImageRecorder:
                 raise NotImplementedError
             topic = COLOR_IMAGE_TOPIC_NAME.format(cam_name)
             node.create_subscription(Image, topic, callback_func, 20)
+
+            node.get_logger().info(f"\n {cam_name} ImageRecorder Subscriber is created.")
+            node.get_logger().debug(f" Topic name : {topic}")
+
             if self.is_debug:
                 setattr(self, f'{cam_name}_timestamps', deque(maxlen=50))
         time.sleep(0.5)
@@ -117,6 +121,7 @@ class Recorder:
             self.follower_state_cb,
             10,
         )
+        node.get_logger().info(f"JointState Subscriber is created!")
 
         # node.create_subscription(
         #     JointGroupCommand,
@@ -129,6 +134,7 @@ class Recorder:
             self.joint_timestamps = deque(maxlen=50)
             self.arm_command_timestamps = deque(maxlen=50)
         time.sleep(0.1)
+
 
     # def follower_arm_commands_cb(self, data: JointGroupCommand):
     #     self.arm_command = data.cmd
@@ -151,6 +157,7 @@ class Recorder:
         arm_command_freq = 1 / dt_helper(self.arm_command_timestamps)
 
         print(f'{joint_freq=:.2f}\n{arm_command_freq=:.2f}\n')
+
 
 class ViveTracker:
     def __init__(

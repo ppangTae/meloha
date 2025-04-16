@@ -54,7 +54,6 @@ def capture_one_episode(
 
     env = make_real_env(
         node=node,
-        setup_robots=False,
     )
 
     robot_startup(node)
@@ -266,7 +265,7 @@ if __name__ == '__main__':
         type=str,
         help='Task name.',
         default="meloha_box_picking",
-        required=True,
+        required=False,
     )
     parser.add_argument(
         '--episode_idx',

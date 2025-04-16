@@ -10,22 +10,16 @@ from meloha.constants import (
 from meloha.robot_utils import (
     ViveTracker,
     ImageRecorder,
-    move_arms,
     Recorder,
-    setup_follower_bot,
-    setup_leader_tracker,
-    solve_inverse_kinematics,
 )
 
 from meloha.manipulator import Manipulator
 
-import dm_env
 from meloha.robot import (
     create_meloha_global_node,
     get_meloha_global_node,
     MelohaRobotNode,
 )
-
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -60,10 +54,12 @@ class RealEnv:
             Initialize the Real Robot Environment
         """
         self.follower_bot_left = Manipulator(
+            side="left",
             robot_name='follower_left',
             node=node,
         )
         self.follower_bot_right = Manipulator(
+            side="right",
             robot_name='follower_right',
             node=node,
         )
