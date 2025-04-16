@@ -89,8 +89,8 @@ class RealEnv:
         state_len = int(len(action) / 2)
         left_action = action[:state_len]
         right_action = action[state_len:]
-        self.follower_bot_left.set_joint_positions(left_action, blocking=False)
-        self.follower_bot_right.set_joint_positions(right_action, blocking=False)
+        self.follower_bot_left.set_joint_positions(left_action)
+        self.follower_bot_right.set_joint_positions(right_action)
         if get_obs:
             obs = self.get_observation()
         else:

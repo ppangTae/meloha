@@ -53,7 +53,7 @@ class ImageRecorder:
             topic = COLOR_IMAGE_TOPIC_NAME.format(cam_name)
             node.create_subscription(Image, topic, callback_func, 20)
 
-            node.get_logger().info(f"\n {cam_name} ImageRecorder Subscriber is created.")
+            node.get_logger().info(f"{cam_name} ImageRecorder Subscriber is created.")
             node.get_logger().debug(f" Topic name : {topic}")
 
             if self.is_debug:

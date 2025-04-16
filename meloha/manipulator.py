@@ -35,7 +35,7 @@ class Manipulator:
         self.is_debug = is_debug
         self.robot_name = robot_name
         self.node_name = node_name
-        self.joint_states: JointState = None
+        self.joint_states: JointState = np.zeros(3) # ! 이거 None으로 바꿔주는 것이 좋긴함.
         self.joint_commands = None
         self.js_mutex = Lock()
         
@@ -202,7 +202,7 @@ class Manipulator:
         for idx in range(3):
             msg = SetPosition()
             msg.id = self.motor_id[idx]
-            msg.position = self.joint_commands[idx]
+            msg.position = self.joint_commands[idx] # TODO :준서한테 부탁!
             self.pub_single.publish(msg)
  
 

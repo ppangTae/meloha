@@ -25,14 +25,18 @@ from launch_ros.parameter_descriptions import ParameterFile
 
 def launch_setup(context, *args, **kwargs):
 
-    # # Dynamixel node setting
-    # dynamixel_node = Node(
-    #     package="dynamixel_sdk_examples",
-    #     executable="read_write_node",
-    #     namespace="dynamixel",
-    #     name="dynamixel"
-    # )
-    
+    # Dynamixel node setting
+    dynamixel_node = Node(
+        package="dynamixel_sdk_examples",
+        executable="read_write_node",
+        namespace="dynamixel",
+        name="dynamixel"
+    )
+
+    # Dynamixel Join publisher node
+
+    # TODO : 이렇게 구현해버리면 외부 launch파일에 의존성이 생겨버려서 좋은 방식은 아님.
+    # TODO : 가능하면 Interbotix에서 구현한 방식으로 구현하기
     rs_triple_camera_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([

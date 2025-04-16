@@ -74,7 +74,7 @@ def capture_one_episode(
         exit()
 
     # Data collection
-    node.get_logger().info("\nData collection start\n")
+    node.get_logger().info("Data collection start\n")
     obs = env.get_observation()
     observations = [obs]
     actions = []

@@ -4,5 +4,6 @@ import yaml
 from tqdm import tqdm
 import time
 
-for t in tqdm(range(20), desc="Processing"):
-    time.sleep(0.5)
+for idx in range(3):
+    print(idx)
+    print(type(idx))
