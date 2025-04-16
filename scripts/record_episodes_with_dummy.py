@@ -286,10 +286,8 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--logging_level',
-        action='store',
-        type=str,
-        help='ROS2 logging level. Same as logging module at python',
+        type=normalize_log_level,  # 바로 변환!
         default='INFO',
-        required=False,
+        help='Logging level (DEBUG, INFO, WARN, ERROR, FATAL)',
     )
     main(vars(parser.parse_args()))

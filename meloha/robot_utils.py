@@ -34,7 +34,9 @@ class ImageRecorder:
         node: Node = None,
     ):
         self.is_debug = is_debug
+        self.node = node
         self.bridge = CvBridge()
+
 
         self.camera_names = ['cam_high', 'cam_left_wrist', 'cam_right_wrist']
 
@@ -51,10 +53,10 @@ class ImageRecorder:
             else:
                 raise NotImplementedError
             topic = COLOR_IMAGE_TOPIC_NAME.format(cam_name)
-            node.create_subscription(Image, topic, callback_func, 20)
+            self.node.create_subscription(Image, topic, callback_func, 20)
 
-            node.get_logger().info(f"{cam_name} ImageRecorder Subscriber is created.")
-            node.get_logger().debug(f" Topic name : {topic}")
+            self.node.get_logger().info(f"{cam_name} ImageRecorder Subscriber is created.")
+            self.node.get_logger().debug(f" Topic name : {topic}\n")
 
             if self.is_debug:
                 setattr(self, f'{cam_name}_timestamps', deque(maxlen=50))
@@ -73,6 +75,7 @@ class ImageRecorder:
                 self,
                 f'{cam_name}_timestamps'
             ).append(data.header.stamp.sec + data.header.stamp.sec * 1e-9)
+        self.node.get_logger().debug(f'{cam_name}_image is updated!')
 
     def image_cb_cam_high(self, data):
         cam_name = 'cam_high'
@@ -114,14 +117,15 @@ class Recorder:
         self.qpos = None
         self.arm_command = None
         self.is_debug = is_debug
+        self.node = node
 
-        node.create_subscription(
+        self.node.create_subscription(
             JointState,
             f'/follower_{side}/joint_states',
             self.follower_state_cb,
             10,
         )
-        node.get_logger().info(f"JointState Subscriber is created!")
+        self.node.get_logger().info(f"JointState Subscriber is created!")
 
         # node.create_subscription(
         #     JointGroupCommand,
@@ -146,6 +150,7 @@ class Recorder:
         self.data = data
         if self.is_debug:
             self.joint_timestamps.append(time.time())
+        self.node.get_logger().debug("JointStates is updated")
 
     def print_diagnostics(self):
         def dt_helper(ts):
