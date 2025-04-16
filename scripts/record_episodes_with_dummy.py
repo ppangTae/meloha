@@ -26,6 +26,8 @@ from meloha.manipulator import (
     Manipulator
 )
 
+from meloha.utils import normalize_log_level
+
 import cv2
 import h5py
 from meloha.robot import (
@@ -46,6 +48,7 @@ def capture_one_episode(
     camera_names,
     dataset_dir,
     dataset_name,
+    logging_level,
     overwrite,
 ):
     print(f'Dataset name: {dataset_name}')
@@ -57,6 +60,8 @@ def capture_one_episode(
     )
 
     robot_startup(node)
+
+    node.get_logger().set_level(logging_level)
 
     # ! Hardcoding
     # csv file에서 조인트 값 들고오기
@@ -204,10 +209,13 @@ def main(args: dict):
         episode_idx = args['episode_idx']
     else:
         episode_idx = get_auto_index(dataset_dir)
+    logging_level = args['logging_level']
     overwrite = True
+    
 
     dataset_name = f'episode_{episode_idx}'
     print(dataset_name + '\n')
+    print(f"logging_level : {logging_level}")
     while True:
         is_healthy = capture_one_episode(
             DT,
@@ -215,6 +223,7 @@ def main(args: dict):
             camera_names,
             dataset_dir,
             dataset_name,
+            logging_level,
             overwrite,
         )
         if is_healthy:
@@ -273,6 +282,14 @@ if __name__ == '__main__':
         type=int,
         help='Episode index.',
         default=None,
+        required=False,
+    )
+    parser.add_argument(
+        '--logging_level',
+        action='store',
+        type=str,
+        help='ROS2 logging level. Same as logging module at python',
+        default='INFO',
         required=False,
     )
     main(vars(parser.parse_args()))

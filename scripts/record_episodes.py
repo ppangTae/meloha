@@ -29,6 +29,8 @@ from meloha.manipulator import (
     Manipulator
 )
 
+from meloha.utils import normalize_log_level
+
 import cv2
 import h5py
 from meloha.robot import (
@@ -59,6 +61,7 @@ def capture_one_episode(
     camera_names,
     dataset_dir,
     dataset_name,
+    logging_level,
     overwrite,
 ):
     print(f'Dataset name: {dataset_name}')
@@ -73,6 +76,8 @@ def capture_one_episode(
     )
 
     robot_startup(node)
+
+
 
     # saving dataset
     if not os.path.isdir(dataset_dir):
@@ -216,19 +221,24 @@ def main(args: dict):
         episode_idx = args['episode_idx']
     else:
         episode_idx = get_auto_index(dataset_dir)
+    logging_level = args['logging_level']
     overwrite = True
 
     dataset_name = f'episode_{episode_idx}'
     print(dataset_name + '\n')
-
-    is_healthy = capture_one_episode(
-        DT,
-        max_timesteps,
-        camera_names,
-        dataset_dir,
-        dataset_name,
-        overwrite,
-    )
+    print(f"logging_level : {logging_level}")
+    while True:
+        is_healthy = capture_one_episode(
+            DT,
+            max_timesteps,
+            camera_names,
+            dataset_dir,
+            dataset_name,
+            logging_level,
+            overwrite,
+        )
+        if is_healthy:
+            break
 
 
 def get_auto_index(dataset_dir, dataset_name_prefix='', data_suffix='hdf5'):
@@ -284,5 +294,11 @@ if __name__ == '__main__':
         help='Episode index.',
         default=None,
         required=False,
+    )
+    parser.add_argument(
+        '--logging_level',
+        type=normalize_log_level,  # 바로 변환!
+        default='INFO',
+        help='Logging level (DEBUG, INFO, WARN, ERROR, FATAL)',
     )
     main(vars(parser.parse_args()))
