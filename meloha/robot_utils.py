@@ -115,6 +115,7 @@ class Recorder:
         self.secs = None
         self.nsecs = None
         self.qpos = None
+        self.qpos = None
         self.arm_command = None
         self.is_debug = is_debug
         self.node = node

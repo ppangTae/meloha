@@ -72,6 +72,8 @@ class RealEnv:
     def get_qpos(self):
         left_arm_qpos = self.recorder_left.qpos
         right_arm_qpos= self.recorder_right.qpos
+        left_arm_qpos = np.zeros(3)
+        right_arm_qpos = np.zeros(3)
         return np.concatenate(
             [left_arm_qpos, right_arm_qpos]
         )
@@ -83,6 +85,7 @@ class RealEnv:
         obs = collections.OrderedDict()
         obs['qpos'] = self.get_qpos()
         obs['images'] = self.get_images()
+        
         return obs
 
     def step(self, action, get_obs=True):
