@@ -65,8 +65,8 @@ def capture_one_episode(
 
     # ! Hardcoding
     # csv file에서 조인트 값 들고오기
-    left_joint_csv_path = '/home/park/meloha_ws/src/meloha/joint_data/path_L.csv'
-    right_joint_csv_path = '/home/park/meloha_ws/src/meloha/joint_data/path_R.csv'
+    left_joint_csv_path = os.path.expanduser('~/meloha_ws') + '/src/meloha/joint_data/path_L.csv'
+    right_joint_csv_path = os.path.expanduser('~/meloha_ws') + '/src/meloha/joint_data/path_R.csv'
     left_joint_commands = np.loadtxt(left_joint_csv_path, delimiter=',')
     right_joint_commands = np.loadtxt(right_joint_csv_path, delimiter= ',')
 
