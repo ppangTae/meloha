@@ -26,25 +26,90 @@ from launch_ros.parameter_descriptions import ParameterFile
 def launch_setup(context, *args, **kwargs):
 
     # Dynamixel node setting
-    dynamixel_node = Node(
+    dynamixel_read_write_node = Node(
         package="dynamixel_sdk_examples",
         executable="read_write_node",
         namespace="dynamixel",
         name="dynamixel"
     )
 
-    # Dynamixel Join publisher node
+    usb_cam_high = Node(
+        package='usb_cam',
+        executable='usb_cam_node_exe',
+        name='camera',
+        namespace='usb_cam_high',
+        # parameters=[
+        #     ParameterFile(
+        #         param_file=PathJoinSubstitution([
+        #             FindPackageShare('meloha'),
+        #             'config',
+        #             'usb_cam_high.yaml',
+        #         ]),
+        #         allow_substs=True,
+        #     )
+        # ],
+        output='screen',
+    )
 
-    # TODO : 이렇게 구현해버리면 외부 launch파일에 의존성이 생겨버려서 좋은 방식은 아님.
-    # TODO : 가능하면 Interbotix에서 구현한 방식으로 구현하기
-    rs_triple_camera_include = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('realsense2_camera'),  # rs_triple_camera_launch.py가 있는 패키지명
-                'launch',
-                'rs_triple_camera_launch.py'
-            ])
-        ]),
+    # ! for testing
+    image_relay_left = Node(
+        package='image_transport',
+        executable='republish',
+        name='relay_left',
+        arguments=['raw', 'raw'],
+        remappings=[
+            ('in', '/usb_cam_high/image_raw'),
+            ('out', '/usb_cam_left_wrist/image_raw')
+        ],
+        output='screen'
+    )
+    # ! for testing
+    image_relay_right = Node(
+        package='image_transport',
+        executable='republish',
+        name='relay_right',
+        arguments=['raw', 'raw'],
+        remappings=[
+            ('in', '/usb_cam_high/image_raw'),
+            ('out', '/usb_cam_right_wrist/image_raw')
+        ],
+        output='screen'
+    )
+
+    usb_cam_left_wrist = Node(
+        package='usb_cam',
+        executable='usb_cam_node_exe',
+        name='usb_cam_left_wrist',
+        namespace='usb_cam_left_wrist',
+        parameters=[
+            ParameterFile(
+                param_file=PathJoinSubstitution([
+                    FindPackageShare('meloha'),
+                    'config',
+                    'usb_cam_left_wrist.yaml',
+                ]),
+                allow_substs=True,
+            )
+        ],
+        output='screen',
+    )
+
+    usb_cam_right_wrist = Node(
+        package='usb_cam',
+        executable='usb_cam_node_exe',
+        name='usb_cam_right_wrist',
+        namespace='usb_cam_right_wrist',
+        parameters=[
+            ParameterFile(
+                param_file=PathJoinSubstitution([
+                    FindPackageShare('aloha'),
+                    'config',
+                    'usb_cam_right_wrist.yaml',
+                ]),
+                allow_substs=True,
+            )
+        ],
+        output='screen',
     )
 
     loginfo_action = LogInfo(msg=[
@@ -53,7 +118,12 @@ def launch_setup(context, *args, **kwargs):
     ])
 
     return [
-        rs_triple_camera_include,
+        #dynamixel_read_write_node,
+        usb_cam_high,
+        image_relay_left,
+        image_relay_right,
+        #usb_cam_left_wrist,
+        #usb_cam_right_wrist,
         loginfo_action,
     ]
 

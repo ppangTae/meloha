@@ -7,7 +7,7 @@ import os
 # COLOR_IMAGE_TOPIC_NAME = '{}/color/image_rect_raw'
 
 # RealSense cameras image topic (realsense2_camera v4.55 and up)
-COLOR_IMAGE_TOPIC_NAME = '/{}/camera/color/image_raw'
+COLOR_IMAGE_TOPIC_NAME = '/usb_{}/image_raw'
 
 DATA_DIR = os.path.expanduser('~/meloha_data')
 

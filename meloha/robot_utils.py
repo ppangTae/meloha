@@ -56,7 +56,7 @@ class ImageRecorder:
             self.node.create_subscription(Image, topic, callback_func, 20)
 
             self.node.get_logger().info(f"{cam_name} ImageRecorder Subscriber is created.")
-            self.node.get_logger().debug(f" Topic name : {topic}\n")
+            self.node.get_logger().info(f" Topic name : {topic}\n")
 
             if self.is_debug:
                 setattr(self, f'{cam_name}_timestamps', deque(maxlen=50))
