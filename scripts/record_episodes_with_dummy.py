@@ -63,13 +63,6 @@ def capture_one_episode(
 
     node.get_logger().set_level(logging_level)
 
-    # ! Hardcoding
-    # csv file에서 조인트 값 들고오기
-    left_joint_csv_path = os.path.expanduser('~/meloha_ws') + '/src/meloha/joint_data/path_L.csv'
-    right_joint_csv_path = os.path.expanduser('~/meloha_ws') + '/src/meloha/joint_data/path_R.csv'
-    left_joint_commands = np.loadtxt(left_joint_csv_path, delimiter=',')
-    right_joint_commands = np.loadtxt(right_joint_csv_path, delimiter= ',')
-
     # saving dataset
     if not os.path.isdir(dataset_dir):
         os.makedirs(dataset_dir)
@@ -77,6 +70,8 @@ def capture_one_episode(
     if os.path.isfile(dataset_path) and not overwrite:
         print(f'Dataset already exist at \n{dataset_path}\nHint: set overwrite to True.')
         exit()
+
+    time.sleep(30)
 
     # Data collection
     node.get_logger().info("Data collection start\n")
@@ -86,9 +81,9 @@ def capture_one_episode(
     actual_dt_history = []
     time0 = time.time()
     DT = 1 / FPS
-    for t in tqdm(range(len(left_joint_commands))):
+    for t in tqdm(range(300)): # 300 is maximum episode length
         t0 = time.time()
-        action = np.concatenate([left_joint_commands[t], right_joint_commands[t]])
+        action = get_action(env.follower_bot_left, env.follower_bot_right)
         t1 = time.time()
         obs = env.step(action)
         t2 = time.time()

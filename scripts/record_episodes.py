@@ -77,8 +77,6 @@ def capture_one_episode(
 
     robot_startup(node)
 
-
-
     # saving dataset
     if not os.path.isdir(dataset_dir):
         os.makedirs(dataset_dir)

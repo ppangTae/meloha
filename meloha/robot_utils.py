@@ -151,7 +151,7 @@ class Recorder:
         self.data = data
         if self.is_debug:
             self.joint_timestamps.append(time.time())
-        self.node.get_logger().debug("JointStates is updated")
+        self.node.get_logger().debug(f"JointState positions subsribed : {self.qpos}")
 
     def print_diagnostics(self):
         def dt_helper(ts):

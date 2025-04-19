@@ -21,7 +21,7 @@ from meloha.robot import (
     MelohaRobotNode,
 )
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 
 class RealEnv:
@@ -72,8 +72,6 @@ class RealEnv:
     def get_qpos(self):
         left_arm_qpos = self.recorder_left.qpos
         right_arm_qpos= self.recorder_right.qpos
-        left_arm_qpos = np.zeros(3)
-        right_arm_qpos = np.zeros(3)
         return np.concatenate(
             [left_arm_qpos, right_arm_qpos]
         )
@@ -105,8 +103,8 @@ def get_action(
     follower_bot_right: Manipulator,
 ):
     action = np.zeros(6)    
-    action[:3] = follower_bot_left.arm_command
-    action[3:] = follower_bot_right.arm_command    
+    action[:3] = follower_bot_left.joint_commands
+    action[3:] = follower_bot_right.joint_commands
     return action
 
 def make_real_env(
