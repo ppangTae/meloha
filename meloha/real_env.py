@@ -23,6 +23,7 @@ from meloha.robot import (
 
 # import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 class RealEnv:
     
@@ -97,12 +98,39 @@ class RealEnv:
         else:
             obs = None
         return obs
+    
+    def reset(self, fake=False):
+
+        # 로봇이 초기위치에 와있지 않다면 error를 발생
+        left_arm_joint_states = self.follower_bot_left.joint_states
+        initial_joint_states = self.follower_bot_left.initial_states
+        for js, init_js in zip(left_arm_joint_states, initial_joint_states):
+            if not math.isclose(js, init_js, abs_tol=1e-3):  # 오차 허용 범위 ±0.001
+                raise ValueError(f"left arm의 {initial_joint_states=}인데 {left_arm_joint_states=}에 있습니다. 초기위치에 정확히 도착하지 않았습니다.")
+            
+        right_arm_joint_states = self.follower_bot_right.joint_states
+        initial_joint_states = self.follower_bot_right.initial_states
+        for js, init_js in zip(right_arm_joint_states, initial_joint_states):
+            if not math.isclose(js, init_js, abs_tol=1e-3):  # 오차 허용 범위 ±0.001
+                raise ValueError(f"right arm의 {initial_joint_states=}인데 {right_arm_joint_states=}에 있습니다. 초기위치에 정확히 도착하지 않았습니다.")
+            
+        obs = self.get_observation()
+        return obs
 
 def get_action(
     follower_bot_left: Manipulator,
     follower_bot_right: Manipulator,
 ):
-    action = np.zeros(6)    
+    
+    # VIVE Tracker에서의 변위를 가져오고,
+
+    # 로봇의 현재위치와 변위를 통해 target을 정하고
+
+    # inverse kinematics를 풀고
+    # ! 도달할 수 없다면 error 발생
+
+    # action에 저장한다.
+    action = np.zeros(6)
     action[:3] = follower_bot_left.joint_commands
     action[3:] = follower_bot_right.joint_commands
     return action

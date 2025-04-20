@@ -185,8 +185,8 @@ class ViveTracker:
         # 시리얼 넘버 읽기
         tracker_1_serial_number = tracker_1.get_serial()
         tracker_2_serial_number = tracker_2.get_serial()
-        self.node.get_logger().debug(f"tracker1 founded : {tracker_1_serial_number}")
-        self.node.get_logger().debug(f"tracker2 founded : {tracker_2_serial_number}")
+        self.node.get_logger().info(f"tracker1 founded : {tracker_1_serial_number}")
+        self.node.get_logger().info(f"tracker2 founded : {tracker_2_serial_number}")
 
         # 미리 지정된 시리얼 넘버 (A: left, B: right)
         LEFT_TRACKER_SERIAL = "A"
@@ -212,11 +212,15 @@ class ViveTracker:
         self.previous_right_position: list = self.tracker_right.get_pose_euler()
         self.current_right_position = None
 
-        self.left_arm_displacement_publisher = node.create_publisher(PoseStamped, '/follower_left/displacement', 10)
-        self.right_arm_displacement_publisher = node.create_publisher(PoseStamped, '/follower_right/displacement', 10)
+        self.left_arm_disp_pub = node.create_publisher(PoseStamped, '/follower_left/displacement', 10)
+        self.right_arm_disp_pub = node.create_publisher(PoseStamped, '/follower_right/displacement', 10)
 
         # 1.0/30초 (약 33ms) 주기로 update_tracker_position 호출하는 Timer 설정
         self.node.create_timer(1.0 / 30.0, self.update_tracker_position)
+
+        if self.is_debug:
+            self.tracker_pub_timestamps = deque(maxlen=50)
+        time.sleep(0.1) # for stabilization
 
         self.node.get_logger().info("VIVE Tracker is connected well!")
 
@@ -228,13 +232,13 @@ class ViveTracker:
         self.current_left_position = self.tracker_left.get_pose_euler()
         self.current_right_position = self.tracker_right.get_pose_euler()
 
-        if self.is_debug:
-            self.node.get_logger().debug(f"[ViveTracker] Updated right pose: {self.current_right_position}")
-
-        if self.is_debug:
-            self.node.get_logger().info(f"[ViveTracker] Updated right pose: {self.current_left_position}")
+        self.node.get_logger().debug(f"[ViveTracker] Update {self.current_left_position=}")
+        self.node.get_logger().debug(f"[ViveTracker] Update {self.current_right_position=}")
         
         self.publish_displacement()
+
+        if self.is_debug:
+            self.tracker_pub_timestamps.append(time.time())
 
     def publish_displacement(self):
 
@@ -256,8 +260,19 @@ class ViveTracker:
         right_displacement_msg.pose.position.z = right_displacement[2]
         right_displacement_msg.header.stamp = now.to_msg()
 
-        self.left_arm_displacement_publisher.publish(left_displacement_msg)
-        self.right_arm_displacement_publisher.publish(right_displacement_msg)
+        self.left_arm_disp_pub.publish(left_displacement_msg)
+        self.node.get_logger().debug(f"[ViveTracker] Publish {self.current_left_position=}")
+        self.right_arm_disp_pub.publish(right_displacement_msg)
+        self.node.get_logger().debug(f"[ViveTracker] Publish {self.current_right_position=}")
+
+    def print_diagnostics(self):
+        def dt_helper(ts):
+            ts = np.array(ts)
+            diff = ts[1:] - ts[:-1]
+            return np.mean(diff)
+
+        tracker_pub_freq = 1 / dt_helper(self.tracker_pub_timestamps)
+        print(f'{tracker_pub_freq=:.2f}')
 
         
 def get_arm_joint_positions(bot: Manipulator):

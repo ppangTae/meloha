@@ -55,6 +55,7 @@ def capture_one_episode(
 
     node = create_meloha_global_node('meloha')
 
+    # 실환경 생성 -> camera subscriber, joint recorder subscriber, robot controller 생성
     env = make_real_env(
         node=node,
     )
@@ -75,7 +76,7 @@ def capture_one_episode(
 
     # Data collection
     node.get_logger().info("Data collection start\n")
-    obs = env.get_observation()
+    obs = env.reset()
     observations = [obs]
     actions = []
     actual_dt_history = []
@@ -94,7 +95,7 @@ def capture_one_episode(
     print(f'Avg fps: {max_timesteps / (time.time() - time0)}')
 
     freq_mean = print_dt_diagnosis(actual_dt_history)
-    if freq_mean < 30:
+    if freq_mean < 25:
         print(f'\n\nfreq_mean is {freq_mean}, lower than 30, re-collecting... \n\n\n\n')
         return False
 

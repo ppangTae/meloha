@@ -39,6 +39,7 @@ class Manipulator:
         self.robot_name = robot_name
         self.node_name = node_name
         self.joint_states: list = [0.0, 0.0, 0.0] # ! 이거 None으로 바꿔주는 것이 좋긴함. 왜냐하면 노드 생성하면 알아서 받음.
+        self.initial_states: list = [0.0, 0.0, 0.0]
         self.joint_commands = None
         self.js_mutex = Lock()
         
