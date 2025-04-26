@@ -60,7 +60,7 @@ class ImageRecorder:
 
             if self.is_debug:
                 setattr(self, f'{cam_name}_timestamps', deque(maxlen=50))
-        time.sleep(0.5)
+        time.sleep(0.1) # for stabilization
 
     def image_cb(self, cam_name: str, data: Image):
         setattr(

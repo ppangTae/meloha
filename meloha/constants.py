@@ -2,11 +2,6 @@
 
 import os
 
-### Task parameters
-# # RealSense cameras image topic (realsense2_camera v4.54)
-# COLOR_IMAGE_TOPIC_NAME = '{}/color/image_rect_raw'
-
-# RealSense cameras image topic (realsense2_camera v4.55 and up)
 COLOR_IMAGE_TOPIC_NAME = '/usb_{}/image_raw'
 
 DATA_DIR = os.path.expanduser('~/meloha_data')
@@ -24,8 +19,8 @@ except ImportError:
 
 LEFT_ARM_JOINT_NAMES = ['left_joint1', 'left_joint2', 'left_joint3']
 RIGHT_ARM_JOINT_NAMES = ['right_joint1', 'right_joint2', 'right_joint3']
-START_LEFT_ARM_POSE = [0, 0, 0]
-START_RIGHT_ARM_POSE = [0, 0, 0]
+MOTOR_ID = {'left' : [5, 6, 7], 'right' : [0 ,1 ,3]}
+START_ARM_POSE = [0, 0, 0]
 
 ### Real hardware task configurations
 TASK_CONFIGS = {

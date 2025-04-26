@@ -3,8 +3,7 @@ import time
 
 from meloha.constants import (
     DT,
-    START_LEFT_ARM_POSE,
-    START_RIGHT_ARM_POSE,
+    START_ARM_POSE,
 )
 
 from meloha.robot_utils import (
@@ -100,7 +99,6 @@ class RealEnv:
         return obs
     
     def reset(self, fake=False):
-
         # 로봇이 초기위치에 와있지 않다면 error를 발생
         left_arm_joint_states = self.follower_bot_left.joint_states
         initial_joint_states = self.follower_bot_left.initial_states
@@ -122,17 +120,16 @@ def get_action(
     follower_bot_right: Manipulator,
 ):
     
-    # VIVE Tracker에서의 변위를 가져오고,
+    ee_target_left = follower_bot_left.current_ee_position + follower_bot_left.displacement
+    ee_target_right = follower_bot_right.current_ee_position + follower_bot_right.displacement
 
-    # 로봇의 현재위치와 변위를 통해 target을 정하고
-
-    # inverse kinematics를 풀고
-    # ! 도달할 수 없다면 error 발생
+    joint_commands_left = follower_bot_left.solve_ik(ee_target_left)
+    joint_commands_right = follower_bot_right.solve_ik(ee_target_right)
 
     # action에 저장한다.
     action = np.zeros(6)
-    action[:3] = follower_bot_left.joint_commands
-    action[3:] = follower_bot_right.joint_commands
+    action[:3] = joint_commands_left
+    action[3:] = joint_commands_right
     return action
 
 def make_real_env(
@@ -142,9 +139,7 @@ def make_real_env(
         node = get_meloha_global_node()
         if node is None:
             node = create_meloha_global_node('meloha')
-    env = RealEnv(
-        node=node,
-    )
+    env = RealEnv(node=node)
     node.get_logger().info("Environment class is initialized!")
     return env
 

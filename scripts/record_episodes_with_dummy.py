@@ -96,7 +96,7 @@ def capture_one_episode(
 
     freq_mean = print_dt_diagnosis(actual_dt_history)
     if freq_mean < 25:
-        print(f'\n\nfreq_mean is {freq_mean}, lower than 30, re-collecting... \n\n\n\n')
+        print(f'\n\nfreq_mean is {freq_mean}, lower than 25, re-collecting... \n\n\n\n')
         return False
 
     """

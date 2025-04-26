@@ -47,6 +47,8 @@ def opening_ceremony(
     follower_bot_right: Manipulator,
 ):
     # move arms to starting position
+    # TODO(준서) : 부딪히는 것을 방지하기 위한 팔 이동 방식을 생각해야함.
+    # TODO        마지막 관절부터 0도로 만드는 것은 어떨련지?
     move_arms(
         [follower_bot_left, follower_bot_right],
         [START_LEFT_ARM_POSE, START_RIGHT_ARM_POSE],
@@ -70,12 +72,11 @@ def capture_one_episode(
 
     vive_tracker = ViveTracker(node=node)
 
-    env = make_real_env(
-        node=node,
-        setup_robots=False,
-    )
+    env = make_real_env(node=node)
 
     robot_startup(node)
+
+    node.get_logger().set_level(logging_level)
 
     # saving dataset
     if not os.path.isdir(dataset_dir):
@@ -88,7 +89,8 @@ def capture_one_episode(
     opening_ceremony(env.follower_bot_left, env.follower_bot_right)
 
     # Data collection
-    obs = env.get_observation()
+    node.get_logger().info("Data collection start\n")
+    obs = env.reset()
     observations = [obs]
     actions = []
     actual_dt_history = []
@@ -96,7 +98,7 @@ def capture_one_episode(
     DT = 1 / FPS
     for t in tqdm(range(max_timesteps)):
         t0 = time.time()
-        action = get_action(env.follower_bot_left, env.follower_bot_right)
+        action = get_action(vive_tracker, env.follower_bot_left, env.follower_bot_right)
         t1 = time.time()
         obs = env.step(action)
         t2 = time.time()
@@ -107,8 +109,8 @@ def capture_one_episode(
     print(f'Avg fps: {max_timesteps / (time.time() - time0)}')
 
     freq_mean = print_dt_diagnosis(actual_dt_history)
-    if freq_mean < 30:
-        print(f'\n\nfreq_mean is {freq_mean}, lower than 30, re-collecting... \n\n\n\n')
+    if freq_mean < 25:
+        print(f'\n\nfreq_mean is {freq_mean}, lower than 25, re-collecting... \n\n\n\n')
         return False
 
     """
@@ -119,10 +121,8 @@ def capture_one_episode(
         - cam_left_wrist    (480, 640, 3) 'uint8'
         - cam_right_wrist   (480, 640, 3) 'uint8'
     - qpos                  (14,)         'float64'
-    - qvel                  (14,)         'float64'
 
     action                  (14,)         'float64'
-    base_action             (2,)          'float64' (on Mobile)
     """
 
     data_dict = {

@@ -9,6 +9,7 @@ import yaml
 import numpy as np
 import time
 from threading import Lock
+from pathlib import Path
 
 from rclpy.node import Node
 import rclpy
@@ -19,6 +20,9 @@ from meloha.robot import (
     robot_startup,
     robot_shutdown
 )
+
+from meloha.constants import MOTOR_ID, START_ARM_POSE
+
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
 from dynamixel_sdk_custom_interfaces.msg import SetPosition
@@ -30,31 +34,25 @@ class Manipulator:
         side: str,
         is_debug: bool = False,
         robot_name: Optional[str] = None,
-        node_name: str = 'meloha_robot_manipulation',
         node: Node = None,
     ):
-        
+
         self.side = side
         self.is_debug = is_debug
         self.robot_name = robot_name
-        self.node_name = node_name
-        self.joint_states: list = [0.0, 0.0, 0.0] # ! 이거 None으로 바꿔주는 것이 좋긴함. 왜냐하면 노드 생성하면 알아서 받음.
-        self.initial_states: list = [0.0, 0.0, 0.0]
-        self.joint_commands = None
+        self.motor_id = MOTOR_ID[self.side]
+        self.dh_param: dict = self._load_dh_params(self.side)
+
+        self.joint_states: list = None
+        self.initial_states: list = START_ARM_POSE
+
+        self.target_ee_position = None
+        self.current_ee_position = None
+        self.displacement = None
+
         self.js_mutex = Lock()
-        
-        if side == 'left':
-            self.motor_id = [5,6,7]
-        elif side == 'right':
-            self.motor_id = [0,1,3]
-        else:
-            raise ValueError(f"side변수가 left, right가 아닙니다. {self.side}를 입력함.")
 
-        self.dh_param: dict = self._load_dh_params()
-        self.theta = np.zeros(3) # 관절 회전 각 -> 초기 위치가 모두 0도임.
-        self.target_position = None
-        setattr(self, f'current_position', None)
-
+        # ! 이런 코드는 없애야됨.(깨끗하게)
         R = np.array([[0, 0, -1], [0, -1, 0], [-1, 0, 0]])
         self.T_base = np.eye(4)
         self.T_base[0:3, 0:3] = R
@@ -65,15 +63,14 @@ class Manipulator:
         else:
             self.robot_node = node
 
-        cb_group_dxl_core = ReentrantCallbackGroup()
-        cb_group_kinematics = ReentrantCallbackGroup()
+        manipulator_cb_group = ReentrantCallbackGroup()
 
         # Dynamixel의 위치제어를 위한 publisher
         self.pub_single = self.robot_node.create_publisher(
-            msg_type=SetPosition,
+            msg_type=SetPosition, # ! JointGroupCommand로 변경
             topic=f'/set_position',
             qos_profile=10,
-            callback_group=cb_group_dxl_core
+            callback_group=manipulator_cb_group
         )
         node.get_logger().info(f"Manipulator follower {side} joint commands publisher is created!")
 
@@ -83,41 +80,40 @@ class Manipulator:
             topic=f'/follwer_{self.side}/joint_states',
             callback=self._joint_state_cb,
             qos_profile=10,
-            callback_group=cb_group_dxl_core,
+            callback_group=manipulator_cb_group,
         )
         node.get_logger().info(f"Manipulator follower {side} joint states subscriber is created!")
 
         # VIVE Tracker로부터 변위를 받는 subscriber
-        # 변위를 받자마자 cb를 통해 역기구학을 풀어 변위만큼 이동하기 위한 joint 각도를 알아낸다.
         self.sub_tracker_displacement = self.robot_node.create_subscription(
             msg_type=PoseStamped,
             topic = f'/follwer_{self.side}/displacement',
-            callback=self.sub_tracker_displacement_cb,
+            callback=self._tracker_disp_cb,
             qos_profile=10,
-            callback_group=cb_group_kinematics
+            callback_group=manipulator_cb_group
         )
         node.get_logger().info(f"Manipulator follower {side} displacement subscriber is created!")
 
-        # Find initial starting position.
+        # Find current joint_positions and ee position
         self.robot_node.get_logger().debug(
             f'Trying to find joint states on topic "follwer_{side}/joint_states"...'
         )
         while self.joint_states is None and rclpy.ok():
             rclpy.spin_once(self.robot_node)
         self.robot_node.get_logger().debug('Found joint states. Continuing...')
-        _, _, self.P, _ = self._solve_fk(self.joint_states)
-        setattr(self, "current_position", self.P[:,3])
-        node.get_logger().info(f"Maniputor {self.side} is located in {getattr(self, 'current_position')}")
+        self.P = self._solve_fk(self.joint_states)
+        self.current_ee_position = self.P[:,3]
+        node.get_logger().info(f"Maniputor {self.side} is located in {self.current_ee_position}")
         node.get_logger().info(f"Manipulator {side} is created well!")
         
-    def sub_tracker_displacement_cb(self, msg):
+    def _tracker_disp_cb(self, msg: PoseStamped):
+        """
+        Get the latest Vive Tracker displacement message through a ROS Subscriber Callback.
+
+        :param msg: PosStamped message
+        """
         dx, dy, dz = msg.pose.position.x, msg.pose.position.y, msg.pose.position.z
-        displacement = np.array([dx, dy, dz])
-        if self.side == "left":
-            self.target_position = self.left_current_position + displacement
-        elif self.side == "right":
-            self.target_position = self.right_current_position + displacement
-        self.joint_commands = self._solve_ik(self.target_position)
+        self.displacement = np.array([dx, dy, dz])
         return
     
     def _joint_state_cb(self, msg: JointState):
@@ -128,35 +124,10 @@ class Manipulator:
         """
         with self.js_mutex:
             self.joint_states = msg
-    
-    def get_node(self) -> MelohaRobotNode:
-        return self.robot_node
-    
-    def dh_to_transform(self, alpha, a, d, theta):
-        """DH 파라미터를 4x4 변환 행렬로 변환하는 함수."""
-        ca = np.cos(np.deg2rad(alpha))
-        sa = np.sin(np.deg2rad(alpha))
-        ct = np.cos(theta)
-        st = np.sin(theta)
-        
-        T = np.array([
-            [ct, -st, 0, a],
-            [st * ca, ct * ca, -sa, -d * sa],
-            [st * sa, ct * sa, ca, d * ca],
-            [0, 0, 0, 1]
-        ])
-        return T
 
-    def _load_dh_params(self):
-        if self.side == "left":
-            yaml_file_name = "left_dh_param.yaml"
-        elif self.side == "right":
-            yaml_file_name = "right_dh_param.yaml"
-        else:
-            raise ValueError(f"Unknown side: {self.side}")
-
-        current_file_path = os.path.abspath(__file__)
-        current_dir = os.path.dirname(current_file_path)
+    def _load_dh_params(self, side):
+        yaml_file_name = f"{side}_dh_param.yaml"
+        current_dir = os.path.dirname(os.path.abspath(__file__))
         parent_dir = os.path.dirname(current_dir)
         yaml_file_path = os.path.join(parent_dir, 'config', yaml_file_name)
         with open(yaml_file_path, 'r') as file:
@@ -164,7 +135,14 @@ class Manipulator:
         
         return data['dh_params']
     
-    def _solve_ik(self, target):
+    def solve_ik(self, target):
+
+        # TODO(준서)
+        # 로봇의 안전문제를 잘 고려해야함.
+        # 1. 역기구학을 풀면서 발생하는 수치적 오류 -> NaN발생
+        # 2. workspace밖에 도달했을 때
+        # 3. 로봇이 몸체에 부딪히지 않도록 특정영역에 들어오면 오류를 발생시켜 부딪히지 않도록 하기
+
         try:
             P2 = self.P[:,1] # base 좌표계에서 바라본 2번째 joint의 위치
             l2 = self.dh_param['joint2']['a']
@@ -196,7 +174,7 @@ class Manipulator:
             # 계산된 관절 각도 반환 (4번째 관절은 0으로 설정)
             return np.array([theta1, theta2, theta3])
         except Exception as e:
-            self.get_logger().error(f'IK 계산 실패: {str(e)}')
+            self.robot_node.get_logger().error(f'IK 계산 실패: {str(e)}')
             return np.array([np.nan, np.nan, np.nan])
         
     
@@ -232,8 +210,9 @@ class Manipulator:
             T[:, :, idx+1] = T[:, :, idx] @ A[:, :, idx]
             P[:, idx+1] = T[0:3, 3, idx+1]
             R[:, :, idx+1] = T[0:3, 0:3, idx+1]
-
-        return A, T, P, R
+        
+        # P[:,1] : Base frame에서 본 2번조인트의 위치, P[:,3] = Base frame에서 본 end_effector의 위치
+        return P
 
     def set_joint_positions(
         self,
@@ -253,8 +232,11 @@ class Manipulator:
         for idx in range(3):
             msg = SetPosition()
             msg.id = self.motor_id[idx]
-            msg.position = int((self.joint_commands[idx] / 360.0) * 600000)
+            msg.position = int((self.joint_commands[idx] / 360.0) * 600000) # TODO : 이거맞나? 확인좀
             self.pub_single.publish(msg)
+
+    def get_node(self) -> MelohaRobotNode:
+        return self.robot_node
 
 def calculate_ik_computation_time():
 
