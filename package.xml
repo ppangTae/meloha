@@ -10,17 +10,22 @@
   <depend>rclpy</depend>
   <depend>cv_bridge</depend>
   <depend>sensor_msgs</depend>
-  <depend>realsense2_camera</depend> <!--realsense2_camera가 깔려있어야하고, realsense 관련 패키지가 local_setup.bash 명령어를 통해 시스템에 등록되어있어야함-->
   <depend>dynamixel_sdk_custom_interfaces</depend> <!-- Dynamixel SetPostiion, GetPostion 메세지를 활용하기 위해서-->
   <depend>dynamixel_sdk</depend>
   <depend>dynamixel_sdk_examples</depend>
+  <depend>multi_dynamixel_interfaces</depend> <!-- Dynamixel custom message를 활용하기 위해서 -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
 
-  <exec_depend>ros2launch</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>tf2_ros_py</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
 
   <export>
     <build_type>ament_python</build_type>

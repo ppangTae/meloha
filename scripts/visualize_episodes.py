@@ -1,10 +1,9 @@
 import argparse
 import os
 
-from aloha.constants import (
+from meloha.constants import (
     DT,
-    IS_MOBILE,
-    JOINT_NAMES,
+    JOINT_NAMES
 )
 import cv2
 import h5py
@@ -12,9 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-STATE_NAMES = JOINT_NAMES + ['gripper']
-BASE_STATE_NAMES = ['linear_vel', 'angular_vel']
-
+STATE_NAMES = JOINT_NAMES
 
 def load_hdf5(dataset_dir, dataset_name):
     dataset_path = os.path.join(dataset_dir, dataset_name + '.hdf5')
@@ -50,11 +47,7 @@ def load_hdf5(dataset_dir, dataset_name):
 def main(args):
     dataset_dir = args['dataset_dir']
     episode_idx = args['episode_idx']
-    ismirror = args['ismirror']
-    if ismirror:
-        dataset_name = f'mirror_episode_{episode_idx}'
-    else:
-        dataset_name = f'episode_{episode_idx}'
+    dataset_name = f'episode_{episode_idx}'
 
     qpos, action, image_dict = load_hdf5(dataset_dir, dataset_name)
     print('hdf5 loaded!')
@@ -173,35 +166,6 @@ def visualize_single(efforts_list, label, plot_path=None, ylim=None, label_overw
     plt.close()
 
 
-def visualize_base(readings, plot_path=None):
-    readings = np.array(readings)  # ts, dim
-    num_ts, num_dim = readings.shape
-    num_figs = num_dim
-    fig, axs = plt.subplots(num_figs, 1, figsize=(8, 2 * num_dim))
-
-    # plot joint state
-    all_names = BASE_STATE_NAMES
-    for dim_idx in range(num_dim):
-        ax = axs[dim_idx]
-        ax.plot(readings[:, dim_idx], label='raw')
-        ax.plot(
-            np.convolve(readings[:, dim_idx], np.ones(20)/20, mode='same'), label='smoothed_20'
-        )
-        ax.plot(
-            np.convolve(readings[:, dim_idx], np.ones(10)/10, mode='same'), label='smoothed_10'
-        )
-        ax.plot(
-            np.convolve(readings[:, dim_idx], np.ones(5)/5, mode='same'), label='smoothed_5'
-        )
-        ax.set_title(f'Joint {dim_idx}: {all_names[dim_idx]}')
-        ax.legend()
-
-    plt.tight_layout()
-    plt.savefig(plot_path)
-    print(f'Saved effort plot to: {plot_path}')
-    plt.close()
-
-
 def visualize_timestamp(t_list, dataset_path):
     plot_path = dataset_path.replace('.pkl', '_timestamp.png')
     h, w = 4, 10
@@ -246,5 +210,4 @@ if __name__ == '__main__':
         help='Episode index.',
         required=False,
     )
-    parser.add_argument('--ismirror', action='store_true')
     main(vars(parser.parse_args()))

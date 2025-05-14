@@ -17,10 +17,12 @@ try:
 except ImportError:
     pass
 
-LEFT_ARM_JOINT_NAMES = ['left_joint1', 'left_joint2', 'left_joint3']
-RIGHT_ARM_JOINT_NAMES = ['right_joint1', 'right_joint2', 'right_joint3']
+LEFT_ARM_JOINT_NAMES = ['joint_1_left', 'joint_2_left', 'joint_3_left']
+RIGHT_ARM_JOINT_NAMES = ['joint_1_right', 'joint_2_right', 'joint_3_right']
+JOINT_NAMES = ['joint_1', 'joint_2', 'joint_3']
 MOTOR_ID = {'left' : [5, 6, 7], 'right' : [0 ,1 ,3]}
-START_ARM_POSE = [0, 0, 0]
+LEFT_ARM_START_POSE = [0, -100000, 200000] # ROBOTIS MOTOR COMMAND. min:-501923(-pi), max: 501923(pi)
+RIGHT_ARM_START_POSE = [0, 100000, -200000]
 
 ### Real hardware task configurations
 TASK_CONFIGS = {
@@ -43,7 +45,11 @@ TASK_CONFIGS = {
 
     'meloha_box_picking' : {
         'dataset_dir': DATA_DIR + '/meloha_box_picking',
+        'episode_len' : 600,
+        'camera_names' : ['cam_head']
+    },
+    'meloha_elevator_button_press' : {
+        'datast_dir' : DATA_DIR + '/meloha_elevator_button_press',
         'episode_len' : 300,
-        'camera_names' : ['cam_high', 'cam_left_wrist', 'cam_right_wrist']
     }
 }

@@ -25,12 +25,48 @@ from launch_ros.parameter_descriptions import ParameterFile
 
 def launch_setup(context, *args, **kwargs):
 
-    # Dynamixel node setting
-    dynamixel_read_write_node = Node(
-        package="dynamixel_sdk_examples",
-        executable="read_write_node",
-        namespace="dynamixel",
-        name="dynamixel"
+    # # Dynamixel node setting
+    # dynamixel_read_write_node = Node(
+    #     package="dynamixel_sdk_examples",
+    #     executable="read_write_node",
+    #     namespace="dynamixel",
+    #     name="dynamixel"
+    # )
+
+    # Include external launch file from libsurvive_ros2 package
+    libsurvive_include_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('libsurvive_ros2'),
+                'launch',
+                'libsurvive_ros2.launch.py'
+            ])
+        ),
+    )
+
+    rviz_include_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('meloha'),
+                'launch',
+                'meloha_rviz.launch.py'
+            ])
+        ),
+    )
+
+    usb_cam_head = Node(
+        package='usb_cam',
+        executable='usb_cam_node_exe',
+        name='camera',
+        namespace='usb_cam_head',
+        output='screen',
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('meloha'),
+                'config',
+                'usb_cam_head.yaml',
+            ]),
+        ]
     )
 
     usb_cam_high = Node(
@@ -38,78 +74,44 @@ def launch_setup(context, *args, **kwargs):
         executable='usb_cam_node_exe',
         name='camera',
         namespace='usb_cam_high',
-        # parameters=[
-        #     ParameterFile(
-        #         param_file=PathJoinSubstitution([
-        #             FindPackageShare('meloha'),
-        #             'config',
-        #             'usb_cam_high.yaml',
-        #         ]),
-        #         allow_substs=True,
-        #     )
-        # ],
         output='screen',
-    )
-
-    # ! for testing
-    image_relay_left = Node(
-        package='image_transport',
-        executable='republish',
-        name='relay_left',
-        arguments=['raw', 'raw'],
-        remappings=[
-            ('in', '/usb_cam_high/image_raw'),
-            ('out', '/usb_cam_left_wrist/image_raw')
-        ],
-        output='screen'
-    )
-    # ! for testing
-    image_relay_right = Node(
-        package='image_transport',
-        executable='republish',
-        name='relay_right',
-        arguments=['raw', 'raw'],
-        remappings=[
-            ('in', '/usb_cam_high/image_raw'),
-            ('out', '/usb_cam_right_wrist/image_raw')
-        ],
-        output='screen'
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('meloha'),
+                'config',
+                'usb_cam_high.yaml',
+            ]),
+        ]
     )
 
     usb_cam_left_wrist = Node(
         package='usb_cam',
         executable='usb_cam_node_exe',
-        name='usb_cam_left_wrist',
+        name='camera',
         namespace='usb_cam_left_wrist',
-        parameters=[
-            ParameterFile(
-                param_file=PathJoinSubstitution([
-                    FindPackageShare('meloha'),
-                    'config',
-                    'usb_cam_left_wrist.yaml',
-                ]),
-                allow_substs=True,
-            )
-        ],
         output='screen',
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('meloha'),
+                'config',
+                'usb_cam_left_wrist.yaml',
+            ]),
+        ]
     )
 
     usb_cam_right_wrist = Node(
         package='usb_cam',
         executable='usb_cam_node_exe',
-        name='usb_cam_right_wrist',
+        name='camera',
         namespace='usb_cam_right_wrist',
-        parameters=[
-            ParameterFile(
-                param_file=PathJoinSubstitution([
-                    FindPackageShare('aloha'),
-                    'config',
-                    'usb_cam_right_wrist.yaml',
-                ]),
-                allow_substs=True,
-            )
-        ],
         output='screen',
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('meloha'),
+                'config',
+                'usb_cam_right_wrist.yaml',
+            ]),
+        ]
     )
 
     loginfo_action = LogInfo(msg=[
@@ -119,45 +121,17 @@ def launch_setup(context, *args, **kwargs):
 
     return [
         #dynamixel_read_write_node,
-        usb_cam_high,
-        image_relay_left,
-        image_relay_right,
-        #usb_cam_left_wrist,
-        #usb_cam_right_wrist,
+        libsurvive_include_launch,
+        rviz_include_launch,
+        # usb_cam_high,
+        usb_cam_head,
+        # usb_cam_left_wrist,
+        # usb_cam_right_wrist,
         loginfo_action,
     ]
 
 
 def generate_launch_description():
     declared_arguments = []
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            'launch_vive_tracker',
-            default_value='true',
-            choices=('true', 'false'),
-            description=(
-                'if `true`, launches both the leader and follower arms; '
-                'if `false`, just the followers are launched'
-            ),
-        )
-    )
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            'cam_high_name',
-            default_value='cam_high',
-        )
-    )
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            'cam_left_wrist_name',
-            default_value='cam_left_wrist',
-        )
-    )
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            'cam_right_wrist_name',
-            default_value='cam_right_wrist',
-        )
-    )
 
     return LaunchDescription(declared_arguments + [OpaqueFunction(function=launch_setup)])

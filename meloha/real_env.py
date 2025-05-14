@@ -3,16 +3,19 @@ import time
 
 from meloha.constants import (
     DT,
-    START_ARM_POSE,
+    LEFT_ARM_START_POSE,
+    RIGHT_ARM_START_POSE,
 )
+
+from meloha.manipulator import Manipulator
 
 from meloha.robot_utils import (
     ViveTracker,
     ImageRecorder,
     Recorder,
+    convert_angle_to_position,
+    convert_position_to_angle,
 )
-
-from meloha.manipulator import Manipulator
 
 from meloha.robot import (
     create_meloha_global_node,
@@ -40,6 +43,7 @@ class RealEnv:
             right_arm_qpos (3),         # absolute joint position
         ]
         "images": {
+            "cam_head": (480x640x3)
             "cam_high": (480x640x3),        # h, w, c, dtype='uint8'
             "cam_left_wrist": (480x640x3),  # h, w, c, dtype='uint8'
             "cam_right_wrist": (480x640x3)  # h, w, c, dtype='uint8'
@@ -55,19 +59,17 @@ class RealEnv:
         """
         self.follower_bot_left = Manipulator(
             side="left",
-            robot_name='follower_left',
             node=node,
         )
         self.follower_bot_right = Manipulator(
             side="right",
-            robot_name='follower_right',
             node=node,
         )
 
         self.recorder_left = Recorder('left', node=node)
         self.recorder_right = Recorder('right', node=node)
         self.image_recorder = ImageRecorder(node=node)
-
+        
 
     def get_qpos(self):
         left_arm_qpos = self.recorder_left.qpos
@@ -87,49 +89,59 @@ class RealEnv:
         return obs
 
     def step(self, action, get_obs=True):
-        state_len = int(len(action) / 2)
-        left_action = action[:state_len]
-        right_action = action[state_len:]
-        self.follower_bot_left.set_joint_positions(left_action)
-        self.follower_bot_right.set_joint_positions(right_action)
+        self.follower_bot_left.set_joint_positions(action[:3])
+        self.follower_bot_right.set_joint_positions(action[3:])
         if get_obs:
             obs = self.get_observation()
         else:
             obs = None
         return obs
     
-    def reset(self, fake=False):
-        # 로봇이 초기위치에 와있지 않다면 error를 발생
+    def reset(self):
+
         left_arm_joint_states = self.follower_bot_left.joint_states
-        initial_joint_states = self.follower_bot_left.initial_states
+        initial_joint_states: list = convert_position_to_angle(LEFT_ARM_START_POSE)
         for js, init_js in zip(left_arm_joint_states, initial_joint_states):
             if not math.isclose(js, init_js, abs_tol=1e-3):  # 오차 허용 범위 ±0.001
-                raise ValueError(f"left arm의 {initial_joint_states=}인데 {left_arm_joint_states=}에 있습니다. 초기위치에 정확히 도착하지 않았습니다.")
+                raise ValueError(f"left arm의 {initial_joint_states=}인데 {left_arm_joint_states=}에 있습니다.\n \
+                                   초기위치에 정확히 도착하지 않았습니다.")
             
         right_arm_joint_states = self.follower_bot_right.joint_states
-        initial_joint_states = self.follower_bot_right.initial_states
+        initial_joint_states: list = convert_position_to_angle(RIGHT_ARM_START_POSE)
         for js, init_js in zip(right_arm_joint_states, initial_joint_states):
             if not math.isclose(js, init_js, abs_tol=1e-3):  # 오차 허용 범위 ±0.001
-                raise ValueError(f"right arm의 {initial_joint_states=}인데 {right_arm_joint_states=}에 있습니다. 초기위치에 정확히 도착하지 않았습니다.")
+                raise ValueError(f"right arm의 {initial_joint_states=}인데 {right_arm_joint_states=}에 있습니다.\n \
+                                   초기위치에 정확히 도착하지 않았습니다.")
+        # TODO : 초기위치 아닐 때 수정
             
         obs = self.get_observation()
         return obs
 
 def get_action(
+    tracker_left: ViveTracker,
+    tracker_right: ViveTracker,
     follower_bot_left: Manipulator,
     follower_bot_right: Manipulator,
 ):
-    
-    ee_target_left = follower_bot_left.current_ee_position + follower_bot_left.displacement
-    ee_target_right = follower_bot_right.current_ee_position + follower_bot_right.displacement
+    moving_scale = 1.0
+    left_displacement = moving_scale * tracker_left.displacement
+    right_displacement = moving_scale * tracker_right.displacement
 
-    joint_commands_left = follower_bot_left.solve_ik(ee_target_left)
-    joint_commands_right = follower_bot_right.solve_ik(ee_target_right)
+    left_displacement[0] = left_displacement[0] * (-1)
+    right_displacement[0] = right_displacement[0] * (-1)
 
-    # action에 저장한다.
-    action = np.zeros(6)
-    action[:3] = joint_commands_left
-    action[3:] = joint_commands_right
+    ee_target_left = follower_bot_left.current_ee_position + moving_scale * left_displacement
+    ee_target_right = follower_bot_right.current_ee_position + moving_scale * right_displacement
+
+    left_ik_success, left_action = follower_bot_left.solve_ik(ee_target_left)
+    right_ik_success, right_action = follower_bot_right.solve_ik(ee_target_right)
+    action = np.concatenate([left_action, right_action])
+
+    if left_ik_success:
+        follower_bot_left.current_ee_position = ee_target_left
+    if right_ik_success:
+        follower_bot_right.current_ee_position = ee_target_right
+
     return action
 
 def make_real_env(

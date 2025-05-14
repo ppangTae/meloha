@@ -5,6 +5,7 @@ import os
 import time
 
 from meloha.constants import (
+    DT,
     FPS,
     JOINT_NAMES,
 )
@@ -18,6 +19,7 @@ from meloha.robot import (
     robot_shutdown,
     robot_startup,
 )
+
 
 def main(args):
     dataset_dir = args['dataset_dir']
@@ -34,19 +36,16 @@ def main(args):
 
     node = create_meloha_global_node('meloha')
 
-    env = make_real_env(node, setup_robots=False)
+    env = make_real_env(node)
 
     robot_startup(node)
-
-    env.setup_robots()
 
     env.reset()
 
     time0 = time.time()
-    DT = 1 / FPS
     for action in actions:
         time1 = time.time()
-        env.step(action, None, get_base_vel=False)
+        env.step(action)
         time.sleep(max(0, DT - (time.time() - time1)))
     print(f'Avg fps: {len(actions) / (time.time() - time0)}')
 

@@ -1,6 +1,6 @@
 /**:
     ros__parameters:
-      video_device: "/dev/video4"
+      video_device: "/dev/video2"
       framerate: 30.0
       io_method: "mmap"
       frame_id: "camera"
@@ -8,7 +8,7 @@
       av_device_format: "YUV422P"
       image_width: 640
       image_height: 480
-      camera_name: "cam_high"
+      camera_name: "cam_head"
       camera_info_url: "package://usb_cam/config/camera_info.yaml"
       brightness: -1
       contrast: -1
@@ -20,4 +20,4 @@
       autoexposure: true
       exposure: 100
       autofocus: false
-      focus: 35
+      focus: -1

@@ -10,8 +10,7 @@ from meloha.constants import (
     DT,
     FPS,
     TASK_CONFIGS,
-    START_RIGHT_ARM_POSE,
-    START_LEFT_ARM_POSE,
+    START_ARM_POSE,
 )
 
 from meloha.real_env import (
@@ -19,14 +18,15 @@ from meloha.real_env import (
     get_action
 )
 
+from meloha.manipulator import (
+    Manipulator
+)
+
 from meloha.robot_utils import (
     ImageRecorder,
     ViveTracker,
     move_arms,
-)
-
-from meloha.manipulator import (
-    Manipulator
+    convert_angle_to_position
 )
 
 from meloha.utils import normalize_log_level
@@ -42,20 +42,7 @@ import numpy as np
 import rclpy
 from tqdm import tqdm
 
-def opening_ceremony(
-    follower_bot_left: Manipulator,
-    follower_bot_right: Manipulator,
-):
-    # move arms to starting position
-    # TODO(준서) : 부딪히는 것을 방지하기 위한 팔 이동 방식을 생각해야함.
-    # TODO        마지막 관절부터 0도로 만드는 것은 어떨련지?
-    move_arms(
-        [follower_bot_left, follower_bot_right],
-        [START_LEFT_ARM_POSE, START_RIGHT_ARM_POSE],
-        moving_time=1.5,
-    )
-
-    print('Started!')
+from dynamixel_sdk_custom_interfaces.msg import SetPosition
 
 def capture_one_episode(
     dt,
@@ -70,7 +57,17 @@ def capture_one_episode(
 
     node = create_meloha_global_node('meloha')
 
-    vive_tracker = ViveTracker(node=node)
+    tracker_left = ViveTracker(
+        side='left',
+        tracker_sn='LHR-21700E73',
+        node=node,
+    )
+
+    tracker_right = ViveTracker(
+        side='right',
+        tracker_sn='LHR-0B6AA285',
+        node=node,
+    )
 
     env = make_real_env(node=node)
 
@@ -86,7 +83,12 @@ def capture_one_episode(
         print(f'Dataset already exist at \n{dataset_path}\nHint: set overwrite to True.')
         exit()
 
-    opening_ceremony(env.follower_bot_left, env.follower_bot_right)
+    # opening_ceremony(env.follower_bot_left, env.follower_bot_right)
+    # env.follower_bot_left.go_to_home_pose()
+    # env.follower_bot_right.go_to_home_pose()
+
+    node.get_logger().info("Please Ready... 5sec")
+    time.sleep(5)
 
     # Data collection
     node.get_logger().info("Data collection start\n")
@@ -95,17 +97,21 @@ def capture_one_episode(
     actions = []
     actual_dt_history = []
     time0 = time.time()
-    DT = 1 / FPS
     for t in tqdm(range(max_timesteps)):
         t0 = time.time()
-        action = get_action(vive_tracker, env.follower_bot_left, env.follower_bot_right)
+        action = get_action(
+            tracker_left,
+            tracker_right,
+            env.follower_bot_left, 
+            env.follower_bot_right
+        )
         t1 = time.time()
         obs = env.step(action)
         t2 = time.time()
         observations.append(obs)
         actions.append(action)
         actual_dt_history.append([t0, t1, t2])
-        time.sleep(max(0, DT - (time.time() - t0)))
+        time.sleep(max(0, dt - (time.time() - t0)))
     print(f'Avg fps: {max_timesteps / (time.time() - time0)}')
 
     freq_mean = print_dt_diagnosis(actual_dt_history)
@@ -117,12 +123,12 @@ def capture_one_episode(
     For each timestep:
     observations
     - images
-        - cam_high          (480, 640, 3) 'uint8'
+        - cam_haed          (480, 640, 3) 'uint8'
         - cam_left_wrist    (480, 640, 3) 'uint8'
         - cam_right_wrist   (480, 640, 3) 'uint8'
-    - qpos                  (14,)         'float64'
+    - qpos                  (6,)         'float64'
 
-    action                  (14,)         'float64'
+    action                  (6,)         'float64'
     """
 
     data_dict = {
@@ -192,8 +198,8 @@ def capture_one_episode(
             else:
                 _ = image.create_dataset(cam_name, (max_timesteps, 480, 640, 3), dtype='uint8',
                                          chunks=(1, 480, 640, 3), )
-        _ = obs.create_dataset('qpos', (max_timesteps, 14))
-        _ = root.create_dataset('action', (max_timesteps, 14))
+        _ = obs.create_dataset('qpos', (max_timesteps, 6))
+        _ = root.create_dataset('action', (max_timesteps, 6))
 
         for name, array in data_dict.items():
             root[name][...] = array
@@ -209,7 +215,7 @@ def capture_one_episode(
 
 
 def main(args: dict):
-    # task_config = TASK_CONFIGS[args['meloha_box_picking']]
+
     task_config = TASK_CONFIGS['meloha_box_picking']
     dataset_dir = task_config['dataset_dir']
     max_timesteps = task_config['episode_len']
@@ -258,7 +264,7 @@ def print_dt_diagnosis(actual_dt_history):
     total_time = actual_dt_history[:, 2] - actual_dt_history[:, 0]
 
     dt_mean = np.mean(total_time)
-    # dt_std = np.std(total_time)
+    dt_std = np.std(total_time)
     freq_mean = 1 / dt_mean
     print((
         f'Avg freq: {freq_mean:.2f} Get action: {np.mean(get_action_time):.3f} '

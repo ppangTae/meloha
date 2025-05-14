@@ -12,6 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch/*.launch.py'))),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'urdf'), glob('urdf/*')),
+        (os.path.join('share', package_name, 'rviz'), glob('rviz/*')),
         ('share/' + package_name, ['package.xml']),
     ],
     install_requires=['setuptools'],

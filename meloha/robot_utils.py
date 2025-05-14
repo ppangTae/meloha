@@ -1,9 +1,10 @@
 from collections import deque
 import time
-from typing import Sequence
+from typing import Sequence, Union
 
 import os
 import cv2
+import math
 
 from meloha.constants import (
     DATA_DIR,
@@ -18,13 +19,18 @@ from meloha.robot import (
 )
 
 from meloha.manipulator import Manipulator
-from meloha.vive_tracker import ViveTrackerModule, vr_tracked_device
 
+import rclpy
 from cv_bridge import CvBridge
 import numpy as np
 from rclpy.node import Node
-from sensor_msgs.msg import Image, JointState
+from sensor_msgs.msg import Image, JointState, Joy
 from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import JointState
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
 
 class ImageRecorder:
 
@@ -37,8 +43,8 @@ class ImageRecorder:
         self.node = node
         self.bridge = CvBridge()
 
-
-        self.camera_names = ['cam_high', 'cam_left_wrist', 'cam_right_wrist']
+        # self.camera_names = ['cam_high', 'cam_head', 'cam_left_wrist', 'cam_right_wrist']
+        self.camera_names = ['cam_head'] # 현재 카메라가 한 개 밖에 없어서 이걸로 대체
 
         for cam_name in self.camera_names:
             setattr(self, f'{cam_name}_image', None)
@@ -46,6 +52,8 @@ class ImageRecorder:
             setattr(self, f'{cam_name}_nsecs', None)
             if cam_name == 'cam_high':
                 callback_func = self.image_cb_cam_high
+            elif cam_name == 'cam_head':
+                callback_func = self.image_cb_cam_head
             elif cam_name == 'cam_left_wrist':
                 callback_func = self.image_cb_cam_left_wrist
             elif cam_name == 'cam_right_wrist':
@@ -80,6 +88,10 @@ class ImageRecorder:
     def image_cb_cam_high(self, data):
         cam_name = 'cam_high'
         return self.image_cb(cam_name, data)
+    
+    def image_cb_cam_head(self, data):
+        cam_name = 'cam_head'
+        return self.image_cb(cam_name, data)
 
     def image_cb_cam_left_wrist(self, data):
         cam_name = 'cam_left_wrist'
@@ -105,6 +117,7 @@ class ImageRecorder:
             print(f'{cam_name} {image_freq=:.2f}')
         print()
 
+
 class Recorder:
     def __init__(
         self,
@@ -114,7 +127,6 @@ class Recorder:
     ):
         self.secs = None
         self.nsecs = None
-        self.qpos = None
         self.qpos = None
         self.arm_command = None
         self.is_debug = is_debug
@@ -128,23 +140,9 @@ class Recorder:
         )
         self.node.get_logger().info(f"JointState Subscriber is created!")
 
-        # node.create_subscription(
-        #     JointGroupCommand,
-        #     f'/follower_{side}/commands/joint_group',
-        #     self.follower_arm_commands_cb,
-        #     10,
-        # )
-
         if self.is_debug:
             self.joint_timestamps = deque(maxlen=50)
-            self.arm_command_timestamps = deque(maxlen=50)
         time.sleep(0.1)
-
-
-    # def follower_arm_commands_cb(self, data: JointGroupCommand):
-    #     self.arm_command = data.cmd
-    #     if self.is_debug:
-    #         self.arm_command_timestamps.append(time.time())
 
     def follower_state_cb(self, data: JointState):
         self.qpos = data.position
@@ -160,110 +158,101 @@ class Recorder:
             return np.mean(diff)
 
         joint_freq = 1 / dt_helper(self.joint_timestamps)
-        arm_command_freq = 1 / dt_helper(self.arm_command_timestamps)
 
-        print(f'{joint_freq=:.2f}\n{arm_command_freq=:.2f}\n')
+        print(f'{joint_freq=:.2f}')
 
+
+"""
+    https://github.com/asymingt/libsurvive_ros2
+    You can utilize this library to get the location and orientation of the VIVE Tracker.
+    This class checks the tf message sent by the above library to determine the location of the VIVE Tracker.
+
+"""
 
 class ViveTracker:
     def __init__(
         self,
+        side: str,
+        tracker_sn: str,
         is_debug: bool = False,
         node: Node = None,
     ):
+        
+        self.side = side
+        self.tracker_sn = tracker_sn
         self.is_debug = is_debug
         self.node = node
 
-        # VIVE Tracker 모듈 초기화
-        self.vive_tracker = ViveTrackerModule()
-        self.vive_tracker.print_discovered_objects()
-
-        # 디바이스 할당
-        tracker_1: vr_tracked_device = self.vive_tracker.devices.get("tracker_1")
-        tracker_2: vr_tracked_device = self.vive_tracker.devices.get("tracker_2")
-
-        # 시리얼 넘버 읽기
-        tracker_1_serial_number = tracker_1.get_serial()
-        tracker_2_serial_number = tracker_2.get_serial()
-        self.node.get_logger().info(f"tracker1 founded : {tracker_1_serial_number}")
-        self.node.get_logger().info(f"tracker2 founded : {tracker_2_serial_number}")
-
-        # 미리 지정된 시리얼 넘버 (A: left, B: right)
-        LEFT_TRACKER_SERIAL = "A"
-        RIGHT_TRACKER_SERIAL = "B" 
-
-        # 트래커 배정
-        if tracker_1_serial_number == LEFT_TRACKER_SERIAL:
-            self.tracker_left = tracker_1
-            self.tracker_right = tracker_2
-        elif tracker_1_serial_number == RIGHT_TRACKER_SERIAL:
-            self.tracker_left = tracker_2
-            self.tracker_right = tracker_1
-        else:
-            raise ValueError("Tracker serial numbers do not match expected values.")
-
-
-        if not self.tracker_left or not self.tracker_right:
-            raise Exception("Trackers not found properly.")
+        self.initialized = False
 
         # position 변위를 게산하기 위한 멤버변수
-        self.previous_left_position: list = self.tracker_left.get_pose_euler() # [x, y, z, yaw, pitch, roll]
-        self.current_left_position = None
-        self.previous_right_position: list = self.tracker_right.get_pose_euler()
-        self.current_right_position = None
+        self.previous_position: np.ndarray = None
+        self.current_position: np.ndarray = None
+        self.displacement: np.ndarray = None
+        self.update_disp: bool = False # TODO : 바꿔야됨
 
-        self.left_arm_disp_pub = node.create_publisher(PoseStamped, '/follower_left/displacement', 10)
-        self.right_arm_disp_pub = node.create_publisher(PoseStamped, '/follower_right/displacement', 10)
+        # VIVE Tracker 모듈 초기화
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node)
 
-        # 1.0/30초 (약 33ms) 주기로 update_tracker_position 호출하는 Timer 설정
-        self.node.create_timer(1.0 / 30.0, self.update_tracker_position)
-
-        if self.is_debug:
-            self.tracker_pub_timestamps = deque(maxlen=50)
-        time.sleep(0.1) # for stabilization
-
-        self.node.get_logger().info("VIVE Tracker is connected well!")
-
-    def update_tracker_position(self):
-
-        self.previous_left_position = self.current_left_position
-        self.previous_right_position = self.current_right_position
-
-        self.current_left_position = self.tracker_left.get_pose_euler()
-        self.current_right_position = self.tracker_right.get_pose_euler()
-
-        self.node.get_logger().debug(f"[ViveTracker] Update {self.current_left_position=}")
-        self.node.get_logger().debug(f"[ViveTracker] Update {self.current_right_position=}")
+        # Serial Number of tracker
+        self.target_frame = self.node.declare_parameter(
+            f'{side}_target_frame', 'LHB-52B7DDF6').get_parameter_value().string_value
+        self.source_frame = self.node.declare_parameter(
+            f'{side}_source_frame', tracker_sn).get_parameter_value().string_value
         
-        self.publish_displacement()
+        # button이 눌렸을 때는 joint state를 publish하지 않도록 하기 위해 button이 눌렸는지 안눌렸는지 정보를 받아오는 subscriber 생성
+        self.joy_subscriber = self.node.create_subscription(
+            Joy,
+            'libsurvive/joy',  # 너가 설정한 joy_topic 이름이랑 같아야 함
+            self.joy_callback,
+            10
+        )
 
-        if self.is_debug:
-            self.tracker_pub_timestamps.append(time.time())
+        self.timer = self.node.create_timer(DT, self.get_tracker_disp_from_tf)
 
-    def publish_displacement(self):
+        while self.previous_position is None and rclpy.ok():
+            rclpy.spin_once(self.node)
+        self.node.get_logger().debug(f'Found VIVE Tracker {self.side} position. Continuing...')    
+        self.node.get_logger().info(f"VIVE Tracker {self.side} is connected well!")
 
-        left_displacement = self.current_left_position - self.previous_left_position
-        right_displacement = self.current_right_position - self.previous_right_position
+    def get_tracker_disp_from_tf(self):
 
-        left_displacement_msg = PoseStamped()
-        right_displacement_msg = PoseStamped()
+        try:
+            tracker_tf = self.tf_buffer.lookup_transform(
+                self.target_frame,
+                self.source_frame,
+                rclpy.time.Time())
+        except TransformException as ex:
+            self.node.get_logger().info(
+                f'Could not transform {self.target_frame} to {self.source_frame}({self.side}): {ex}'
+            )
+            return
+        
+        pos = tracker_tf.transform.translation
 
-        now = self.node.get_clock().now()
+        if not self.initialized:
+            self.previous_position = np.array([pos.x, pos.y, pos.z])
+            self.current_position = np.array([pos.x, pos.y, pos.z])
+            self.displacement = np.array([0.0, 0.0 ,0.0])
+            self.initialized = True
+        else:
+            self.current_position = np.array([pos.x, pos.y, pos.z])
+            self.displacement = self.current_position - self.previous_position
+            self.previous_position = self.current_position
+        return
 
-        left_displacement_msg.pose.position.x = left_displacement[0]
-        left_displacement_msg.pose.position.y = left_displacement[1]
-        left_displacement_msg.pose.position.z = left_displacement[2]
-        left_displacement_msg.header.stamp = now.to_msg()
 
-        right_displacement_msg.pose.position.x = right_displacement[0]
-        right_displacement_msg.pose.position.y = right_displacement[1]
-        right_displacement_msg.pose.position.z = right_displacement[2]
-        right_displacement_msg.header.stamp = now.to_msg()
-
-        self.left_arm_disp_pub.publish(left_displacement_msg)
-        self.node.get_logger().debug(f"[ViveTracker] Publish {self.current_left_position=}")
-        self.right_arm_disp_pub.publish(right_displacement_msg)
-        self.node.get_logger().debug(f"[ViveTracker] Publish {self.current_right_position=}")
+    def joy_callback(self, msg: Joy):
+        # 버튼 눌림 상태 확인
+        button_states = msg.buttons
+        if any(button_states):
+            self.update_disp = not self.update_disp
+            self.node.get_logger().info(f'🔴 Button Pressed')
+            if self.update_disp:
+                self.node.get_logger().info(f"start to publish JointState")
+            else:
+                self.node.get_logger().info(f"stop to publish JointState")
 
     def print_diagnostics(self):
         def dt_helper(ts):
@@ -276,23 +265,43 @@ class ViveTracker:
 
         
 def get_arm_joint_positions(bot: Manipulator):
-    return bot.joint_states.position
+    return bot.joint_states
 
-def move_arms(
-    bot_list: Sequence[Manipulator],
-    target_pose_list: Sequence[Sequence[float]],
-    moving_time: float = 1.0,
-) -> None:
-    num_steps = int(moving_time / DT)
-    curr_pose_list = [get_arm_joint_positions(bot) for bot in bot_list]
-    zipped_lists = zip(curr_pose_list, target_pose_list)
-    traj_list = [
-        np.linspace(curr_pose, target_pose, num_steps) for curr_pose, target_pose in zipped_lists
-    ]
-    for t in range(num_steps):
-        for bot_id, bot in enumerate(bot_list):
-            bot.set_joint_positions(traj_list[bot_id][t], blocking=False)
-        time.sleep(DT)
+def convert_angle_to_position(rad: Union[float, list]) -> Union[int, list]:
+    """
+        Convert radian angle(s) to ROBOTIS MOTOR Command Value(s)
+        -pi -> -501923, pi -> 501923
+        Supports scalar, list, or numpy array input.
+    """
+    max_input = math.pi
+    max_output = 501923
+
+    rad = np.asarray(rad)
+    pos = (rad / max_input) * max_output
+    result = pos.astype(int)
+    
+    if result.ndim == 0:
+        return int(result)  # scalar
+    else:
+        return result.tolist()  # list of ints
+
+def convert_position_to_angle(pos):
+    """
+    Convert ROBOTIS MOTOR Command Value(s) to radian angle(s)
+    -501923 -> -pi, 501923 -> pi
+    Supports scalar, list, or numpy array input.
+    Always returns float or list[float].
+    """
+    max_input = 501923
+    max_output = math.pi
+
+    pos = np.asarray(pos)
+    angle = (pos / max_input) * max_output
+
+    if angle.ndim == 0:
+        return float(angle)  # scalar
+    else:
+        return angle.tolist()  # list of floats
 
 
 def test_image_recorder():
@@ -332,12 +341,10 @@ def test_image_recorder():
     
     robot_shutdown(node)
 
-# def test_joint_recorder():
-#     if node is None:
-#         node = get_meloha_global_node()
-#     if node is None:
-#         node = create_meloha_global_node('meloha')
-#     joint_recorder = Recorder(node=node,)
+def test_joint_recorder():
+    if node is None:
+        node = create_meloha_global_node('meloha')
+    joint_recorder = Recorder(node=node,)
 
 def test_vive_tracker():
 
@@ -346,7 +353,10 @@ def test_vive_tracker():
     """
 
     node = create_meloha_global_node('meloha')
-    vive_tracker = ViveTracker(node=node)
+    vive_tracker = ViveTracker(
+        side='left',
+        tracker_sn='LHR-21700E73',
+        node=node)
 
     # start up global node
     robot_startup(node)
@@ -357,12 +367,11 @@ def test_vive_tracker():
     node.get_logger().info("vive tracker is started!")
 
     while True:
-        node.get_logger().info(f"left_pose : {vive_tracker.left_pose}")
-        node.get_logger().info(f"right_pose : {vive_tracker.right_pose}")
+        node.get_logger().info(f"left_displacement : {vive_tracker.displacement}")
 
         time.sleep(1.0/30.0)
 
     robot_shutdown(node)
 
 if __name__ == "__main__":
-    test_image_recorder()
+    test_vive_tracker()
