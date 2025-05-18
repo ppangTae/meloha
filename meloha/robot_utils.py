@@ -43,8 +43,7 @@ class ImageRecorder:
         self.node = node
         self.bridge = CvBridge()
 
-        # self.camera_names = ['cam_high', 'cam_head', 'cam_left_wrist', 'cam_right_wrist']
-        self.camera_names = ['cam_head'] # 현재 카메라가 한 개 밖에 없어서 이걸로 대체
+        self.camera_names = ['cam_head', 'cam_left_wrist', 'cam_right_wrist']
 
         for cam_name in self.camera_names:
             setattr(self, f'{cam_name}_image', None)
@@ -189,7 +188,7 @@ class ViveTracker:
         self.previous_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
-        self.update_disp: bool = False # TODO : 바꿔야됨
+        self.update_disp: bool = True # TODO : 바꿔야됨
 
         # VIVE Tracker 모듈 초기화
         self.tf_buffer = Buffer()

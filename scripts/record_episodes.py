@@ -10,7 +10,6 @@ from meloha.constants import (
     DT,
     FPS,
     TASK_CONFIGS,
-    START_ARM_POSE,
 )
 
 from meloha.real_env import (
@@ -25,7 +24,6 @@ from meloha.manipulator import (
 from meloha.robot_utils import (
     ImageRecorder,
     ViveTracker,
-    move_arms,
     convert_angle_to_position
 )
 

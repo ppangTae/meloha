@@ -4,6 +4,7 @@ ROS_SETUP_PATH=/opt/ros/$ROS_DISTRO/setup.bash
 WORKSPACE_SETUP_PATH=$HOME/meloha_ws/install/setup.bash
 RECORD_EPISODES="$HOME/meloha_ws/src/meloha/scripts/record_episodes.py"
 
+
 source $ROS_SETUP_PATH || exit 1
 source $WORKSPACE_SETUP_PATH || exit 1
 

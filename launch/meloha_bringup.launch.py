@@ -69,20 +69,20 @@ def launch_setup(context, *args, **kwargs):
         ]
     )
 
-    usb_cam_high = Node(
-        package='usb_cam',
-        executable='usb_cam_node_exe',
-        name='camera',
-        namespace='usb_cam_high',
-        output='screen',
-        parameters=[
-            PathJoinSubstitution([
-                FindPackageShare('meloha'),
-                'config',
-                'usb_cam_high.yaml',
-            ]),
-        ]
-    )
+    # usb_cam_high = Node(
+    #     package='usb_cam',
+    #     executable='usb_cam_node_exe',
+    #     name='camera',
+    #     namespace='usb_cam_high',
+    #     output='screen',
+    #     parameters=[
+    #         PathJoinSubstitution([
+    #             FindPackageShare('meloha'),
+    #             'config',
+    #             'usb_cam_high.yaml',
+    #         ]),
+    #     ]
+    # )
 
     usb_cam_left_wrist = Node(
         package='usb_cam',
@@ -125,8 +125,8 @@ def launch_setup(context, *args, **kwargs):
         rviz_include_launch,
         # usb_cam_high,
         usb_cam_head,
-        # usb_cam_left_wrist,
-        # usb_cam_right_wrist,
+        usb_cam_left_wrist,
+        usb_cam_right_wrist,
         loginfo_action,
     ]
 

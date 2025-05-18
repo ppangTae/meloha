@@ -62,7 +62,7 @@ def main(args) -> None:
     # follower_bot_right.go_to_home_pose()
 
     while rclpy.ok():
-        displacement = 1.25 * np.array([tracker_left.displacement, tracker_right.displacement])
+        displacement = 0.9 * np.array([tracker_left.displacement, tracker_right.displacement])
         displacement[0][0] = displacement[0][0] * (-1) # left x축 방향 조정
         displacement[1][0] = displacement[1][0] * (-1)
         if tracker_left.update_disp: # Pressed left button, then start to move

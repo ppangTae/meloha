@@ -220,10 +220,10 @@ class Manipulator:
         # P[:,1] : Base frame에서 본 2번조인트의 위치, P[:,3] = Base frame에서 본 end_effector의 위치
         return P
     
-    def go_to_home_pose(self):
-        self._publish_commands(
-            positions = START_ARM_POSE,
-        )
+    # def go_to_home_pose(self):
+    #     self._publish_commands(
+    #         positions = START_ARM_POSE,
+    #     )
     
     def set_single_joint_position(
         self,
