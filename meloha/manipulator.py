@@ -112,6 +112,9 @@ class Manipulator:
         with self.js_mutex:
             self.joint_states = msg.position
 
+        # Joint state에 맞춰 fk계산해서 current_position update
+        self.current_ee_position = self._solve_fk(self.side, self.joint_states)
+
     def _load_dh_params(self, side):
         yaml_file_name = f"{side}_dh_param.yaml"
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -174,6 +177,7 @@ class Manipulator:
         
     
     def _solve_fk(self, side: str, positions: np.ndarray):
+        # TODO : DH파라미터 구조 개선하기 
         # 순방향 기구학 계산
         i = 3 # joint 수
         j = i + 1
@@ -220,10 +224,8 @@ class Manipulator:
         # P[:,1] : Base frame에서 본 2번조인트의 위치, P[:,3] = Base frame에서 본 end_effector의 위치
         return P
     
-    # def go_to_home_pose(self):
-    #     self._publish_commands(
-    #         positions = START_ARM_POSE,
-    #     )
+    def go_to_home_pose(self):
+        pass
     
     def set_single_joint_position(
         self,
@@ -266,6 +268,7 @@ class Manipulator:
     def _publish_commands(
         self,
         positions: List[float],
+        motor_id: List[int] = None,
     ) -> None:
 
         from meloha.robot_utils import convert_angle_to_position # for solving circular import
@@ -273,21 +276,32 @@ class Manipulator:
         self.node.get_logger().debug(f'Publishing {positions=}')
 
         msg = MultiSetPosition()
-        msg.ids = self.motor_id
+        if motor_id is None:
+            msg.ids = self.motor_id
+        else:
+            msg.ids = motor_id
         msg.positions = positions
         self.pub_group.publish(msg)
     
     def _check_collision(self, positions: List[float]):
         
         # Check collision
-        x, y, z = self.current_ee_position
+        x, y, z = self.current_ee_position[:, 3] # !!!수정 필요
 
-        if (-0.18 <= x <= 0.18) and (-0.58 <= y <= 0) and (-0.10 <= z <= 0.10):
+        if (-0.18 <= x <= 0.18) and (-0.60 <= y <= 0) and (-0.11 <= z <= 0.11):
             self.node.get_logger().error(
-                f"[충돌 위험] End-effector 위치가 허용 범위를 벗어났습니다: x={x:.2f}, y={y:.2f}, z={z:.2f}"
+                f"[충돌 위험] End-effector가 몸체에 부딪힐 수 있습니다: x={x:.2f}, y={y:.2f}, z={z:.2f}\n \
+                    안전을 위해 프로그램을 강제종료합니다."
+            )
+            rclpy.shutdown()
+        elif (-0.24 <= x <= 0.24) and (y <= -0.60) and (-0.24 <= z <= 0.24): 
+            self.node.get_logger().error(
+                f"[충돌 위험] End-effector가 주행부에 부딪힐 수 있습니다: x={x:.2f}, y={y:.2f}, z={z:.2f}\n \
+                    안전을 위해 프로그램을 강제종료합니다."
             )
             rclpy.shutdown()
         return True
+    
 
     def get_node(self) -> MelohaRobotNode:
         return self.node

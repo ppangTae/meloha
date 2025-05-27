@@ -148,7 +148,7 @@ def capture_one_episode(
                 obs['images'][cam_name]
             )
 
-    COMPRESS = True
+    COMPRESS = False
 
     if COMPRESS:
         # JPEG compression

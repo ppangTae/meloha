@@ -1,5 +1,6 @@
 import collections
 import time
+import sys
 
 from meloha.constants import (
     DT,
@@ -89,6 +90,25 @@ class RealEnv:
         return obs
 
     def step(self, action, get_obs=True):
+
+        max_angle_delta = np.deg2rad(10)
+
+        current_left_positions = self.follower_bot_left.joint_states
+        current_right_positions = self.follower_bot_right.joint_states
+        target_left_positions = action[:3]
+        target_right_positions = action[3:]
+
+        delta_left = target_left_positions - current_left_positions
+        delta_right = target_right_positions - current_right_positions
+
+        max_abs_delta_left = np.max(np.abs(delta_left))
+        max_abs_delta_right = np.max(np.abs(delta_right))
+
+        # 만약 최대 변화량이 10도를 초과하면 에러를 발생시키고 종료합니다.
+        if max_abs_delta_left > max_angle_delta:
+            print(f"Error: 왼쪽 로봇 조인트 변화량이 10도를 초과했습니다. ({np.rad2deg(max_abs_delta_left):.2f}도)")
+            sys.exit(1) # 프로그램 종료
+
         self.follower_bot_left.set_joint_positions(action[:3])
         self.follower_bot_right.set_joint_positions(action[3:])
         if get_obs:

@@ -33,26 +33,26 @@ def launch_setup(context, *args, **kwargs):
     #     name="dynamixel"
     # )
 
-    # Include external launch file from libsurvive_ros2 package
-    libsurvive_include_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('libsurvive_ros2'),
-                'launch',
-                'libsurvive_ros2.launch.py'
-            ])
-        ),
-    )
+    # # Include external launch file from libsurvive_ros2 package
+    # libsurvive_include_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         PathJoinSubstitution([
+    #             FindPackageShare('libsurvive_ros2'),
+    #             'launch',
+    #             'libsurvive_ros2.launch.py'
+    #         ])
+    #     ),
+    # )
 
-    rviz_include_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('meloha'),
-                'launch',
-                'meloha_rviz.launch.py'
-            ])
-        ),
-    )
+    # rviz_include_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         PathJoinSubstitution([
+    #             FindPackageShare('meloha'),
+    #             'launch',
+    #             'meloha_rviz.launch.py'
+    #         ])
+    #     ),
+    # )
 
     usb_cam_head = Node(
         package='usb_cam',
@@ -121,8 +121,8 @@ def launch_setup(context, *args, **kwargs):
 
     return [
         #dynamixel_read_write_node,
-        libsurvive_include_launch,
-        rviz_include_launch,
+        # libsurvive_include_launch,
+        # rviz_include_launch,
         # usb_cam_high,
         usb_cam_head,
         usb_cam_left_wrist,

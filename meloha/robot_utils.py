@@ -137,7 +137,7 @@ class Recorder:
             self.follower_state_cb,
             10,
         )
-        self.node.get_logger().info(f"JointState Subscriber is created!")
+        self.node.get_logger().info(f"recorder {side} is created!")
 
         if self.is_debug:
             self.joint_timestamps = deque(maxlen=50)
@@ -341,9 +341,16 @@ def test_image_recorder():
     robot_shutdown(node)
 
 def test_joint_recorder():
-    if node is None:
-        node = create_meloha_global_node('meloha')
-    joint_recorder = Recorder(node=node,)
+
+    node = create_meloha_global_node('meloha')
+    recorder_left = Recorder('left', node=node)
+    robot_startup(node)
+    node.get_logger().info("image_recorder is started!")
+    while True:
+        node.get_logger().info(f"left_displacement : {recorder_left.qpos}")
+
+        time.sleep(1.0/30.0)
+    return
 
 def test_vive_tracker():
 
@@ -373,4 +380,4 @@ def test_vive_tracker():
     robot_shutdown(node)
 
 if __name__ == "__main__":
-    test_vive_tracker()
+    test_joint_recorder()
