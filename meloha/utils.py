@@ -17,6 +17,18 @@ LOG_LEVEL_MAP = {
     'CRITICAL': LoggingSeverity.FATAL,
 }
 
+def get_transformation_matrix(theta: float, alpha: float, a: float, d: float) -> np.ndarray:
+    
+    ct, st = np.cos(theta), np.sin(theta)
+    ca, sa = np.cos(alpha), np.sin(alpha)
+    
+    return np.array([
+        [ct, -st*ca,  st*sa, a*ct],
+        [st,  ct*ca, -ct*sa, a*st],
+        [0,      sa,     ca,    d],
+        [0,       0,      0,    1]
+    ])
+
 def normalize_log_level(level_str: str) -> int:
     """
     사용자 입력 문자열을 받아서 적절한 LoggingSeverity 상수로 변환

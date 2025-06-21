@@ -25,6 +25,8 @@ from meloha.robot import (
     robot_shutdown,
 )
 
+from meloha.utils import get_transformation_matrix
+
 from meloha.constants import MOTOR_ID
 
 from sensor_msgs.msg import JointState
@@ -41,17 +43,14 @@ class Manipulator:
         node: Node = None,
     ):
 
+        # robot configuation
         self.side = side
-        self.is_debug = is_debug
-        self.ns = f'follower_{self.side}'
-
+        self.ns = f'follower_{self.side}' # name space
         self.motor_id = MOTOR_ID[self.side]
         self.dh_param: dict = self._load_dh_params(self.side)
 
-        self.joint_states: list = None # rad
-        self.initial_states: list = None
-        self.base_T = np.eye(4) 
-
+        self.joint_states: list = None
+        self.T10 = self.get_T10() # Transformation matrix from joint 1 to base frame (joint 0)
         self.target_ee_position = None
         self.current_ee_position = None
         self.displacement = None
@@ -65,14 +64,13 @@ class Manipulator:
 
         cb_group_manipulator = ReentrantCallbackGroup()
 
-        # Dynamixel의 위치제어를 위한 publisher
         self.pub_single = self.node.create_publisher(
             msg_type=SetPosition,
             topic=f'/set_position',
             qos_profile=10,
             callback_group=cb_group_manipulator
         )
-        node.get_logger().info(f"Manipulator follower {side} joint commands publisher is created!")
+        node.get_logger().info(f"Manipulator follower {side} single joint command publisher is created!")
 
         self.pub_group = self.node.create_publisher(
             msg_type = MultiSetPosition,
@@ -80,8 +78,8 @@ class Manipulator:
             qos_profile=10,
             callback_group=cb_group_manipulator
         )
+        node.get_logger().info(f"Manipulator follower {side} joint commands publisher is created!")
 
-        # Dynamixel에서 오는 joint state를 받기 위한 subscriber
         self.sub_joint_states = self.node.create_subscription(
             msg_type=JointState,
             topic=f'{self.ns}/joint_states', 
@@ -98,7 +96,7 @@ class Manipulator:
         while self.joint_states is None and rclpy.ok():
             rclpy.spin_once(self.node)
         self.node.get_logger().debug('Found joint states. Continuing...')
-        self.P = self._solve_fk(self.side, self.joint_states)
+        self.P = self._solve_fk(self.side, self.joint_states) # TODO : FK를 계산할 때 어느 관절의 위치를 출력하고싶은지 인자로 전달하도록 (defult는 end_effector 위치)
         self.current_ee_position = self.P[:,3]
         node.get_logger().info(f"Maniputor {self.side} is located in {self.current_ee_position}")
         node.get_logger().info(f"Manipulator {side} is created well!")
@@ -126,11 +124,28 @@ class Manipulator:
         return data['dh_params']
     
     def solve_ik(self, target: np.ndarray) -> Tuple[bool, np.ndarray]:
+
+        # TODO : IK 계산을 하는 함수는 ik계산만 해야하는데 관절값 할당까지 해버림. 이런 식으로 코딩하지말자. 하나의 함수는 하나만!
+
+        """
+        Solves the inverse kinematics (IK) for a 3-DOF robotic arm using an algebraic approach,
+        specifically selecting the "upper arm" (elbow-up) solution. The target position is given
+        with respect to joint0 (base), but for IK calculation, it is transformed to the joint1 frame.
+        This transformation is necessary because the algebraic solution requires the end-effector
+        position relative to joint1. Computes joint angles (theta1, theta2, theta3) and returns
+        whether a valid solution exists along with the joint values.
+
+        Args:
+            target (np.ndarray): 3D target position in the base frame.
+
+        Returns:
+            Tuple[bool, np.ndarray]: (success flag, joint angles array)
+        """
+
         try:
-            T_head_to_joint1 = np.linalg.inv(self.base_T)
 
             target = np.append(target, 1)
-            target_in_joint1_frame = T_head_to_joint1 @ target
+            target_in_joint1_frame = self.T10 @ target
             target_x, target_y, target_z, _ = target_in_joint1_frame
 
             # 링크 길이
@@ -168,64 +183,65 @@ class Manipulator:
             if not np.isfinite(js_target).all():
                 raise ValueError("NaN or Inf detected in joint solution")
 
-            self.joint_states = js_target
             return True, js_target
 
         except Exception as e:
             self.node.get_logger().error(f'IK computation fail : {e}')
-            return False, np.array(self.joint_states)
-        
     
-    def _solve_fk(self, side: str, positions: np.ndarray):
-        # TODO : DH파라미터 구조 개선하기 
-        # 순방향 기구학 계산
-        i = 3 # joint 수
-        j = i + 1
-        
-        #변환 행렬 초기화
-        A = np.zeros((4, 4, i))
-        T = np.zeros((4, 4, j))
-        P = np.zeros((3, j))
-        R = np.zeros((3, 3, j))
+    def _solve_fk(self, positions: np.ndarray) -> np.ndarray:
 
-        # 베이스 변환 행렬 설정
-        if side == 'left':
-            self.base_T = np.array([[0, 0, -1, -0.1],
-                                    [-1, 0 , 0, 0],
-                                    [0, 1, 0, 0],
-                                    [0, 0, 0, 1]])
-        elif side == 'right':
-            self.base_T = np.array([[0, 0, 1, 0.1],
-                                    [-1, 0, 0, 0,],
-                                    [0, -1, 0, 0,],
-                                    [0 ,0, 0, 1]])
-        
-        T[:, :, 0] = self.base_T
-        P[:, 0] = self.base_T[0:3, 3]
+        """
+        Computes the forward kinematics (FK) for the manipulator using Denavit-Hartenberg parameters.
 
-        #각 관절에 대한 변호나 행렬 계산
-        for idx in range(i):
-            theta = positions[idx]
-            d = self.dh_param[f'joint{idx+1}']['d']
-            alpha = self.dh_param[f'joint{idx+1}']['alpha']
-            a = self.dh_param[f'joint{idx+1}']['a']
-            ct, st, ca, sa = np.cos(theta), np.sin(theta), np.cos(alpha), np.sin(alpha)
-            A[:, :, idx] = np.array([
-                [ct, -st*ca, st*sa, a*ct],
-                [st, ct*ca, -ct*sa, a*st],
-                [0, sa, ca, d],
-                [0, 0, 0, 1]
-            ])
+        Args:
+            positions (np.ndarray): The joint positions (angles) for the manipulator.
 
-            T[:, :, idx+1] = T[:, :, idx] @ A[:, :, idx]
-            P[:, idx+1] = T[0:3, 3, idx+1]
-            R[:, :, idx+1] = T[0:3, 0:3, idx+1]
-        
-        # P[:,1] : Base frame에서 본 2번조인트의 위치, P[:,3] = Base frame에서 본 end_effector의 위치
-        return P
+        Returns:
+            np.ndarray: The 3D position of the end-effector in the base frame.
+        """
+
+        T = np.eye(4)
+        pos_idx = 0
+
+        # Use the order of keys as they appear in the loaded DH param dict
+        for joint, param in self.dh_param.items():
+            theta = param.get('theta')
+            # For actuated joints, override theta with input positions
+            if 'theta' not in param and pos_idx < len(positions):
+                theta = positions[pos_idx]
+                pos_idx += 1
+            alpha = param.get('alpha')
+            a = param.get('a')
+            d = param.get('d')
+            A = get_transformation_matrix(theta, alpha, a, d)
+            T = T @ A
+
+        return T[:3, 3] # End-effector position in base frame
     
-    def go_to_home_pose(self):
-        pass
+    def get_T10(self):
+
+        """
+        Returns the transformation matrix from joint 1 to the base frame (joint 0).
+        This is a static transformation based on the DH parameters.
+
+        """
+
+        T0_05 = get_transformation_matrix(
+            theta=self.dh_param['joint0']['theta'],
+            alpha=self.dh_param['joint0']['alpha'],
+            a=self.dh_param['joint0']['a'],
+            d=self.dh_param['joint0']['d']
+        )
+        T05_1 = get_transformation_matrix(
+            theta=self.dh_param['joint0.5']['theta'],
+            alpha=self.dh_param['joint0.5']['alpha'],
+            a=self.dh_param['joint0.5']['a'],
+            d=self.dh_param['joint0.5']['d']
+        )
+        T01 = T0_05 @ T05_1
+        T10 = np.linalg.inv(T01)  # Cache the result
+
+        return T10  # Inverse transformation from joint 1 to base frame (joint 0)
     
     def set_single_joint_position(
         self,
