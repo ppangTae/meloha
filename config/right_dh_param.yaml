@@ -1,4 +1,17 @@
 dh_params:
+  joint0:
+    # DH parameter for base frame to intermdiate joint frame
+    theta: 90
+    alpha: -90
+    a: 0.0
+    d: 0.0
+  joint0.5:
+    # Inserted joint0.5 as an intermediate frame since direct DH transformation from joint0 to joint1 is not feasible.
+    # DH parameter for intermediate motor frame to shoulder motor frame (intermediate joint)
+    theta: 0
+    alpha: 0
+    a: 0.0
+    d: 0.1
   joint1:  # DH parameter for shoulder motor frame to arm motor frame  
     alpha: 90
     a: 0

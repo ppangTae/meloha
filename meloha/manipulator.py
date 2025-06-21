@@ -22,7 +22,7 @@ from meloha.robot import (
     MelohaRobotNode,
     create_meloha_global_node,
     robot_startup,
-    robot_shutdown
+    robot_shutdown,
 )
 
 from meloha.constants import MOTOR_ID
@@ -50,7 +50,7 @@ class Manipulator:
 
         self.joint_states: list = None # rad
         self.initial_states: list = None
-        self.base_T = np.eye(4)
+        self.base_T = np.eye(4) 
 
         self.target_ee_position = None
         self.current_ee_position = None
