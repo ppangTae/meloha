@@ -33,6 +33,7 @@ class RealEnv:
     """
     Environment for real robot bi-manual manipulation.
 
+    # Action is calculated by displacement of Vive Trackers.
     Action space: [
         left_arm_qpos (3),             # absolute joint position
         right_arm_qpos (3),            # absolute joint position
@@ -44,8 +45,7 @@ class RealEnv:
             right_arm_qpos (3),         # absolute joint position
         ]
         "images": {
-            "cam_head": (480x640x3)
-            "cam_high": (480x640x3),        # h, w, c, dtype='uint8'
+            "cam_head": (480x640x3)         # h, w, c, dtype='uint8'
             "cam_left_wrist": (480x640x3),  # h, w, c, dtype='uint8'
             "cam_right_wrist": (480x640x3)  # h, w, c, dtype='uint8'
         }
@@ -58,6 +58,7 @@ class RealEnv:
         """
             Initialize the Real Robot Environment
         """
+        
         self.follower_bot_left = Manipulator(
             side="left",
             node=node,
@@ -70,7 +71,8 @@ class RealEnv:
         self.recorder_left = Recorder('left', node=node)
         self.recorder_right = Recorder('right', node=node)
         self.image_recorder = ImageRecorder(node=node)
-        
+
+        self.max_allowed_joint_angle = np.deg2rad(10)
 
     def get_qpos(self):
         left_arm_qpos = self.recorder_left.qpos
@@ -79,8 +81,10 @@ class RealEnv:
             [left_arm_qpos, right_arm_qpos]
         )
 
+
     def get_images(self):
         return self.image_recorder.get_images()
+
 
     def get_observation(self):
         obs = collections.OrderedDict()
@@ -91,7 +95,7 @@ class RealEnv:
 
     def step(self, action, get_obs=True):
 
-        max_angle_delta = np.deg2rad(10)
+        max_allowed_joint_angle = self.max_allowed_joint_angle
 
         current_left_positions = self.follower_bot_left.joint_states
         current_right_positions = self.follower_bot_right.joint_states
@@ -101,12 +105,11 @@ class RealEnv:
         delta_left = target_left_positions - current_left_positions
         delta_right = target_right_positions - current_right_positions
 
-        max_abs_delta_left = np.max(np.abs(delta_left))
-        max_abs_delta_right = np.max(np.abs(delta_right))
+        max_abs_delta= np.max(np.abs(delta_left), np.abs(delta_right))
 
         # 만약 최대 변화량이 10도를 초과하면 에러를 발생시키고 종료합니다.
-        if max_abs_delta_left > max_angle_delta:
-            print(f"Error: 왼쪽 로봇 조인트 변화량이 10도를 초과했습니다. ({np.rad2deg(max_abs_delta_left):.2f}도)")
+        if max_abs_delta > max_allowed_joint_angle:
+            print(f"Error: 왼쪽 로봇 조인트 변화량이 10도를 초과했습니다. ({np.rad2deg(max_abs_delta):.2f}도)")
             sys.exit(1) # 프로그램 종료
 
         self.follower_bot_left.set_joint_positions(action[:3])
@@ -119,9 +122,12 @@ class RealEnv:
     
     def reset(self):
 
+        # TODO : 초기위치로 돌아가는 로직을 추가해야함.
+
         left_arm_joint_states = self.follower_bot_left.joint_states
         initial_joint_states: list = convert_position_to_angle(LEFT_ARM_START_POSE)
         for js, init_js in zip(left_arm_joint_states, initial_joint_states):
+            # TODO : 오류를 발생시킬게 아니라, 원래 자리로 돌아가도록 해야함. 그래야 데이터수집하기가 편함.
             if not math.isclose(js, init_js, abs_tol=1e-3):  # 오차 허용 범위 ±0.001
                 raise ValueError(f"left arm의 {initial_joint_states=}인데 {left_arm_joint_states=}에 있습니다.\n \
                                    초기위치에 정확히 도착하지 않았습니다.")
@@ -132,7 +138,6 @@ class RealEnv:
             if not math.isclose(js, init_js, abs_tol=1e-3):  # 오차 허용 범위 ±0.001
                 raise ValueError(f"right arm의 {initial_joint_states=}인데 {right_arm_joint_states=}에 있습니다.\n \
                                    초기위치에 정확히 도착하지 않았습니다.")
-        # TODO : 초기위치 아닐 때 수정
             
         obs = self.get_observation()
         return obs
@@ -147,18 +152,26 @@ def get_action(
     left_displacement = moving_scale * tracker_left.displacement
     right_displacement = moving_scale * tracker_right.displacement
 
+    # ! 씨뮬해보고 되면 아래 코드 2줄 삭제
     left_displacement[0] = left_displacement[0] # TODO : 이거 시뮬레이션 돌려보고 확인해봐야됨.
     right_displacement[0] = right_displacement[0]
 
-    ee_target_left = follower_bot_left.current_ee_position + moving_scale * left_displacement
-    ee_target_right = follower_bot_right.current_ee_position + moving_scale * right_displacement
+    ee_target_left = follower_bot_left.current_ee_position + left_displacement
+    ee_target_right = follower_bot_right.current_ee_position + right_displacement
 
     left_ik_success, left_action = follower_bot_left.solve_ik(ee_target_left)
     right_ik_success, right_action = follower_bot_right.solve_ik(ee_target_right)
 
-    action = np.concatenate([left_action, right_action])
+    if left_ik_success is False or right_ik_success is False:
+        action = np.concatenate([
+            follower_bot_left.joint_states,
+            follower_bot_right.joint_states
+        ])
+    else:
+        action = np.concatenate([left_action, right_action])
 
     return action
+
 
 def make_real_env(
     node: MelohaRobotNode = None,

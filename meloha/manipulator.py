@@ -50,8 +50,9 @@ class Manipulator:
         self.motor_id = MOTOR_ID[self.side]
         self.dh_param: dict = self._load_dh_params(self.side)
 
-        self.joint_states: list = None
         self.T10 = self.get_T10() # Transformation matrix from joint 1 to base frame (joint 0)
+
+        self.joint_states: list = None
         self.current_ee_position = None
 
         self.js_mutex = Lock()
@@ -107,6 +108,7 @@ class Manipulator:
         # Joint state에 맞춰 fk계산해서 current_position update
         self.current_ee_position = self._solve_fk(self.side, self.joint_states)
 
+
     def _load_dh_params(self, side):
         dh_param_filename = f"{side}_dh_param.yaml"
         package_share = Path(get_package_share_directory('meloha'))
@@ -116,9 +118,8 @@ class Manipulator:
         
         return data['dh_params']
     
-    def solve_ik(self, target: np.ndarray) -> Tuple[bool, np.ndarray]:
 
-        # TODO : IK 계산을 하는 함수는 ik계산만 해야하는데 관절값 할당까지 해버림. 이런 식으로 코딩하지말자. 하나의 함수는 하나만!
+    def solve_ik(self, target: np.ndarray) -> Tuple[bool, np.ndarray]:
 
         """
         Solves the inverse kinematics (IK) for a 3-DOF robotic arm using an algebraic approach,
@@ -180,7 +181,10 @@ class Manipulator:
 
         except Exception as e:
             self.node.get_logger().error(f'IK computation fail : {e}')
+
+            return False, None
     
+
     def _solve_fk(self, positions: np.ndarray) -> np.ndarray:
 
         """
@@ -211,6 +215,7 @@ class Manipulator:
 
         return T[:3, 3] # End-effector position in base frame
     
+
     def get_T10(self):
 
         """
@@ -236,6 +241,7 @@ class Manipulator:
 
         return T10  # Inverse transformation from joint 1 to base frame (joint 0)
     
+
     def set_single_joint_position(
         self,
         motor_id: float,
@@ -244,6 +250,7 @@ class Manipulator:
 
         self.node.get_logger().debug(f"Setting Joint '{motor_id}' to position={position}")
         self._publish_command(position)
+
 
     def set_joint_positions(
         self,
@@ -256,6 +263,7 @@ class Manipulator:
             return True
         else:
             return False
+
 
     def _publish_command(
         self,
@@ -274,10 +282,10 @@ class Manipulator:
         msg.position = position
         self.pub_single.publish(msg)
         
+
     def _publish_commands(
         self,
         positions: List[float],
-        motor_id: List[int] = None,
     ) -> None:
 
         from meloha.robot_utils import convert_angle_to_position # for solving circular import
@@ -285,28 +293,27 @@ class Manipulator:
         self.node.get_logger().debug(f'Publishing {positions=}')
 
         msg = MultiSetPosition()
-        if motor_id is None:
-            msg.ids = self.motor_id
-        else:
-            msg.ids = motor_id
+        msg.ids = self.motor_id
         msg.positions = positions
+
         self.pub_group.publish(msg)
-    
-    def _check_collision(self, positions: List[float]):
+
+
+    def _check_collision(self):
         
         # Check collision
-        x, y, z = self.current_ee_position[:, 3] # !!!수정 필요
+        x, y, z = self.current_ee_position
 
-        if (-0.18 <= x <= 0.18) and (-0.60 <= y <= 0) and (-0.11 <= z <= 0.11):
+        if (-0.18 <= x <= 0.18) and (0<= y <= 0.6) and (-0.11 <= z <= 0.11):
             self.node.get_logger().error(
                 f"[충돌 위험] End-effector가 몸체에 부딪힐 수 있습니다: x={x:.2f}, y={y:.2f}, z={z:.2f}\n \
-                    안전을 위해 프로그램을 강제종료합니다."
+                    안전을 위해 프로그램을 강제종료 합니다."
             )
             rclpy.shutdown()
         elif (-0.24 <= x <= 0.24) and (y <= -0.60) and (-0.24 <= z <= 0.24): 
             self.node.get_logger().error(
                 f"[충돌 위험] End-effector가 주행부에 부딪힐 수 있습니다: x={x:.2f}, y={y:.2f}, z={z:.2f}\n \
-                    안전을 위해 프로그램을 강제종료합니다."
+                    안전을 위해 프로그램을 강제종료 합니다."
             )
             rclpy.shutdown()
         return True

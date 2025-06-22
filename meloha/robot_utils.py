@@ -179,6 +179,7 @@ class ViveTracker:
         
         self.side = side
         self.tracker_sn = tracker_sn
+
         self.is_debug = is_debug
         self.node = node
 
@@ -188,7 +189,7 @@ class ViveTracker:
         self.previous_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
-        self.update_disp: bool = True # TODO : 바꿔야됨
+        self.update_disp: bool = False
 
         # VIVE Tracker 모듈 초기화
         self.tf_buffer = Buffer()
@@ -200,10 +201,10 @@ class ViveTracker:
         self.source_frame = self.node.declare_parameter(
             f'{side}_source_frame', tracker_sn).get_parameter_value().string_value
         
-        # button이 눌렸을 때는 joint state를 publish하지 않도록 하기 위해 button이 눌렸는지 안눌렸는지 정보를 받아오는 subscriber 생성
+        # Subscribe to button press events to control joint state publishing
         self.joy_subscriber = self.node.create_subscription(
             Joy,
-            'libsurvive/joy',  # 너가 설정한 joy_topic 이름이랑 같아야 함
+            'libsurvive/joy',
             self.joy_callback,
             10
         )
@@ -216,6 +217,11 @@ class ViveTracker:
         self.node.get_logger().info(f"VIVE Tracker {self.side} is connected well!")
 
     def get_tracker_disp_from_tf(self):
+        """
+        Retrieve the current position of the VIVE Tracker from the TF tree and compute its displacement
+        since the last update. Updates the previous and current position attributes, as well as the
+        displacement vector. Called periodically by a timer.
+        """
 
         try:
             tracker_tf = self.tf_buffer.lookup_transform(
@@ -239,6 +245,11 @@ class ViveTracker:
             self.current_position = np.array([pos.x, pos.y, pos.z])
             self.displacement = self.current_position - self.previous_position
             self.previous_position = self.current_position
+
+        # TODO : vive tracker의 x,y,z 변위를 변수에다가 모두 저장하도록 코드 구성하기
+        if self.is_debug:
+            pass
+
         return
 
 
