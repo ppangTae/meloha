@@ -147,20 +147,16 @@ def get_action(
     left_displacement = moving_scale * tracker_left.displacement
     right_displacement = moving_scale * tracker_right.displacement
 
-    left_displacement[0] = left_displacement[0] * (-1)
-    right_displacement[0] = right_displacement[0] * (-1)
+    left_displacement[0] = left_displacement[0] # TODO : 이거 시뮬레이션 돌려보고 확인해봐야됨.
+    right_displacement[0] = right_displacement[0]
 
     ee_target_left = follower_bot_left.current_ee_position + moving_scale * left_displacement
     ee_target_right = follower_bot_right.current_ee_position + moving_scale * right_displacement
 
     left_ik_success, left_action = follower_bot_left.solve_ik(ee_target_left)
     right_ik_success, right_action = follower_bot_right.solve_ik(ee_target_right)
-    action = np.concatenate([left_action, right_action])
 
-    if left_ik_success:
-        follower_bot_left.current_ee_position = ee_target_left
-    if right_ik_success:
-        follower_bot_right.current_ee_position = ee_target_right
+    action = np.concatenate([left_action, right_action])
 
     return action
 
