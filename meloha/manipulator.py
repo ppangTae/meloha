@@ -51,9 +51,7 @@ class Manipulator:
 
         self.joint_states: list = None
         self.T10 = self.get_T10() # Transformation matrix from joint 1 to base frame (joint 0)
-        self.target_ee_position = None
         self.current_ee_position = None
-        self.displacement = None
 
         self.js_mutex = Lock()
 
@@ -96,8 +94,7 @@ class Manipulator:
         while self.joint_states is None and rclpy.ok():
             rclpy.spin_once(self.node)
         self.node.get_logger().debug('Found joint states. Continuing...')
-        self.P = self._solve_fk(self.side, self.joint_states) # TODO : FK를 계산할 때 어느 관절의 위치를 출력하고싶은지 인자로 전달하도록 (defult는 end_effector 위치)
-        self.current_ee_position = self.P[:,3]
+        self.current_ee_position = self._solve_fk(self.side, self.joint_states) # TODO : FK를 계산할 때 어느 관절의 위치를 출력하고싶은지 인자로 전달하도록 (defult는 end_effector 위치)
         node.get_logger().info(f"Maniputor {self.side} is located in {self.current_ee_position}")
         node.get_logger().info(f"Manipulator {side} is created well!")
     
