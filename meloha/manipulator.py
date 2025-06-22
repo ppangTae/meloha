@@ -17,6 +17,7 @@ from pathlib import Path
 from rclpy.node import Node
 import rclpy
 from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
+from ament_index_python.packages import get_package_share_directory
 
 from meloha.robot import (
     MelohaRobotNode,
@@ -99,11 +100,7 @@ class Manipulator:
         node.get_logger().info(f"Manipulator {side} is created well!")
     
     def _joint_state_cb(self, msg: JointState):
-        """
-        Get the latest JointState message through a ROS Subscriber Callback.
 
-        :param msg: JointState message
-        """
         with self.js_mutex:
             self.joint_states = msg.position
 
@@ -111,10 +108,9 @@ class Manipulator:
         self.current_ee_position = self._solve_fk(self.side, self.joint_states)
 
     def _load_dh_params(self, side):
-        yaml_file_name = f"{side}_dh_param.yaml"
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        parent_dir = os.path.dirname(current_dir)
-        yaml_file_path = os.path.join(parent_dir, 'config', yaml_file_name)
+        dh_param_filename = f"{side}_dh_param.yaml"
+        package_share = Path(get_package_share_directory('meloha'))
+        yaml_file_path = package_share / 'config' / dh_param_filename
         with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)
         
@@ -368,7 +364,7 @@ def check_collsion_function():
 
 if __name__ == "__main__":
     check_collsion_function()
- 
+
 
 
 
