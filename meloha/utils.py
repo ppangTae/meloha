@@ -19,6 +19,9 @@ LOG_LEVEL_MAP = {
 
 def get_transformation_matrix(theta: float, alpha: float, a: float, d: float) -> np.ndarray:
     
+    theta = np.deg2rad(theta)
+    alpha = np.deg2rad(alpha)
+
     ct, st = np.cos(theta), np.sin(theta)
     ca, sa = np.cos(alpha), np.sin(alpha)
     
