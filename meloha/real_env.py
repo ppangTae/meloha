@@ -93,6 +93,7 @@ class RealEnv:
         
         return obs
 
+
     def step(self, action, get_obs=True):
 
         max_allowed_joint_angle = self.max_allowed_joint_angle
@@ -120,6 +121,7 @@ class RealEnv:
             obs = None
         return obs
     
+
     def reset(self):
 
         # TODO : 초기위치로 돌아가는 로직을 추가해야함.
@@ -142,6 +144,7 @@ class RealEnv:
         obs = self.get_observation()
         return obs
 
+
 def get_action(
     tracker_left: ViveTracker,
     tracker_right: ViveTracker,
@@ -152,9 +155,8 @@ def get_action(
     left_displacement = moving_scale * tracker_left.displacement
     right_displacement = moving_scale * tracker_right.displacement
 
-    # ! 씨뮬해보고 되면 아래 코드 2줄 삭제
-    left_displacement[0] = left_displacement[0] # TODO : 이거 시뮬레이션 돌려보고 확인해봐야됨.
-    right_displacement[0] = right_displacement[0]
+    left_displacement[1] = -left_displacement[0] # Y-axis inversion for left side
+    right_displacement[1] = -right_displacement[0] # Y-axis inversion for left side
 
     ee_target_left = follower_bot_left.current_ee_position + left_displacement
     ee_target_right = follower_bot_right.current_ee_position + right_displacement

@@ -137,7 +137,6 @@ class Manipulator:
         """
 
         try:
-
             target = np.append(target, 1)
             target_in_joint1_frame = self.T10 @ target
             target_x, target_y, target_z, _ = target_in_joint1_frame
