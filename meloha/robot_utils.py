@@ -398,9 +398,9 @@ def test_vive_tracker():
     robot_shutdown(node)
 
 def plot_vive_tracker_displacement(displacement_history):
-
     """
-    Plot the x, y, and z components of the Vive Tracker's displacement over time.
+    Plot the x, y, and z components of the Vive Tracker's displacement over time
+    using separate subplots for each axis, with autoscaling for better visibility.
     """
 
     if not displacement_history:
@@ -410,15 +410,20 @@ def plot_vive_tracker_displacement(displacement_history):
     displacement_array = np.array(displacement_history)
     time_steps = np.arange(len(displacement_array)) / 30.0  # Convert indices to seconds (30 Hz)
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(time_steps, displacement_array[:, 0], label='X Displacement', color='r')
-    plt.plot(time_steps, displacement_array[:, 2], label='Z Displacement', color='b')
+    axis_labels = ['X', 'Y', 'Z']
+    colors = ['r', 'g', 'b']
 
-    plt.title("Vive Tracker Displacement Over Time")
-    plt.xlabel("Time (seconds)")
-    plt.ylabel("Displacement (meters)")
-    plt.legend()
-    plt.grid(True)
+    plt.figure(figsize=(10, 8))
+    for i in range(3):
+        plt.subplot(3, 1, i + 1)
+        plt.plot(time_steps, displacement_array[:, i], color=colors[i], label=f'{axis_labels[i]} Displacement')
+        plt.ylabel(f'{axis_labels[i]} (meters)')
+        plt.legend(loc='upper right')
+        plt.grid(True)
+        if i == 2:
+            plt.xlabel("Time (seconds)")
+    plt.suptitle("Vive Tracker Displacement Over Time (per axis)")
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
 
