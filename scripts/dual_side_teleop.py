@@ -13,6 +13,8 @@ from meloha.manipulator import (
     Manipulator
 )
 
+from meloha.constants import DT
+
 from meloha.robot_utils import (
     ViveTracker,
     convert_angle_to_position,
@@ -32,7 +34,6 @@ def main(args) -> None:
     node = create_meloha_global_node('meloha')
 
     is_sim = args['is_sim']
-    is_sim = False
     if is_sim:
         print("Running in simulation mode (RViz).")
         joint_state_publisher = node.create_publisher(JointState, 'joint_states', 10)
@@ -62,14 +63,18 @@ def main(args) -> None:
     # follower_bot_right.go_to_home_pose()
 
     while rclpy.ok():
-        displacement = 1.0 * np.array([tracker_left.displacement, tracker_right.displacement])
-        displacement[0][0] = displacement[0][0] * (-1) # left x축 방향 조정
-        displacement[1][0] = displacement[1][0] * (-1)
+        moving_scale = 1.0
+        left_displacement = moving_scale * tracker_left.displacement
+        right_displacement = moving_scale * tracker_right.displacement
+
+        left_displacement[1] = -left_displacement[1]  # Y-axis inversion for left side
+        right_displacement[1] = -right_displacement[1]  # Y-axis inversion for right side
+
         if tracker_left.update_disp: # Pressed left button, then start to move
-            ee_target = np.array([follower_bot_left.current_ee_position + displacement[0],
-                                  follower_bot_right.current_ee_position + displacement[1]])
-            left_ik_success, left_action = follower_bot_left.solve_ik(ee_target[0])
-            right_ik_success, right_action = follower_bot_right.solve_ik(ee_target[1])
+            left_ee_target = follower_bot_left.current_ee_position + left_displacement
+            right_ee_target = follower_bot_right.current_ee_position + right_displacement
+            left_ik_success, left_action = follower_bot_left.solve_ik(left_ee_target)
+            right_ik_success, right_action = follower_bot_right.solve_ik(right_ee_target)
             action = np.concatenate([left_action, right_action])
             if is_sim:
                 js = JointState()
@@ -80,9 +85,9 @@ def main(args) -> None:
                 js.position = list(action)
                 joint_state_publisher.publish(js)
                 if left_ik_success:
-                    follower_bot_left.current_ee_position = ee_target[0]
+                    follower_bot_left.current_ee_position = left_ee_target
                 if right_ik_success:
-                    follower_bot_right.current_ee_position = ee_target[1]
+                    follower_bot_right.current_ee_position = right_ee_target
                 node.get_logger().info(f'JointState 발행: {js.position}')
             else:
                 action = list(action)
@@ -90,11 +95,11 @@ def main(args) -> None:
                 follower_bot_right.set_joint_positions(action[3:])
                 
                 if left_ik_success:
-                    follower_bot_left.current_ee_position = ee_target[0]
+                    follower_bot_left.current_ee_position = left_ee_target
                 if right_ik_success:
-                    follower_bot_right.current_ee_position = ee_target[1]
+                    follower_bot_right.current_ee_position = right_ee_target
 
-        time.sleep(1.0 / 50)
+        time.sleep(DT)
     robot_shutdown(node)
 
 if __name__ == '__main__':

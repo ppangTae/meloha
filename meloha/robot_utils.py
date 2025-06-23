@@ -1,6 +1,7 @@
 from collections import deque
 import time
 from typing import Sequence, Union
+import matplotlib.pyplot as plt
 
 import os
 import cv2
@@ -185,13 +186,13 @@ class ViveTracker:
 
         self.initialized = False
 
-        # position 변위를 게산하기 위한 멤버변수
+        # Member variable for calculating position displacement
         self.previous_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
-        self.update_disp: bool = False
+        self.update_disp: bool = False # Whether the Vive Tracker button has been pressed
 
-        # VIVE Tracker 모듈 초기화
+        # VIVE Tracker Module Initialization
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self.node)
 
@@ -211,13 +212,17 @@ class ViveTracker:
 
         self.timer = self.node.create_timer(DT, self.get_tracker_disp_from_tf)
 
+        if self.is_debug:
+            self.displacement_history = []
+
         while self.previous_position is None and rclpy.ok():
             rclpy.spin_once(self.node)
         self.node.get_logger().debug(f'Found VIVE Tracker {self.side} position. Continuing...')    
         self.node.get_logger().info(f"VIVE Tracker {self.side} is connected well!")
 
     def get_tracker_disp_from_tf(self):
-        """
+
+        """ 
         Retrieve the current position of the VIVE Tracker from the TF tree and compute its displacement
         since the last update. Updates the previous and current position attributes, as well as the
         displacement vector. Called periodically by a timer.
@@ -248,7 +253,7 @@ class ViveTracker:
 
         # TODO : vive tracker의 x,y,z 변위를 변수에다가 모두 저장하도록 코드 구성하기
         if self.is_debug:
-            pass
+            self.displacement_history.append([pos.x, pos.y, pos.z])
 
         return
 
@@ -366,29 +371,56 @@ def test_joint_recorder():
 def test_vive_tracker():
 
     """
-        For testing if vive tracker3.0 is communicated well.
+        For testing if vive tracker 3.0 is communicated well.
     """
 
     node = create_meloha_global_node('meloha')
     vive_tracker = ViveTracker(
         side='left',
         tracker_sn='LHR-21700E73',
-        node=node)
+        node=node,
+        is_debug=True,
+        )
 
     # start up global node
     robot_startup(node)
 
-    # Wait for until Vive Tracker is ready!
-    time.sleep(5)
-
     node.get_logger().info("vive tracker is started!")
 
-    while True:
-        node.get_logger().info(f"left_displacement : {vive_tracker.displacement}")
+    node.get_logger().info(f"wait for 3 seconds")
 
+    start_time = time.time()
+    while time.time() - start_time < 20:
         time.sleep(1.0/30.0)
+
+    plot_vive_tracker_displacement(vive_tracker.displacement_history)
 
     robot_shutdown(node)
 
+def plot_vive_tracker_displacement(displacement_history):
+
+    """
+    Plot the x, y, and z components of the Vive Tracker's displacement over time.
+    """
+
+    if not displacement_history:
+        print("No displacement data available to plot.")
+        return
+
+    displacement_array = np.array(displacement_history)
+    time_steps = np.arange(len(displacement_array)) / 30.0  # Convert indices to seconds (30 Hz)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(time_steps, displacement_array[:, 0], label='X Displacement', color='r')
+    plt.plot(time_steps, displacement_array[:, 2], label='Z Displacement', color='b')
+
+    plt.title("Vive Tracker Displacement Over Time")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Displacement (meters)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
 if __name__ == "__main__":
-    test_joint_recorder()
+    test_vive_tracker()

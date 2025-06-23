@@ -52,7 +52,7 @@ class Manipulator:
 
         self.T10 = self.get_T10() # Transformation matrix from joint 1 to base frame (joint 0)
 
-        self.joint_states: list = None
+        self.joint_states: list = [0.0, 0.0, 0.0] # ! sim
         self.current_ee_position = None
 
         self.js_mutex = Lock()
@@ -96,7 +96,7 @@ class Manipulator:
         while self.joint_states is None and rclpy.ok():
             rclpy.spin_once(self.node)
         self.node.get_logger().debug('Found joint states. Continuing...')
-        self.current_ee_position = self._solve_fk(self.side, self.joint_states) # TODO : FK를 계산할 때 어느 관절의 위치를 출력하고싶은지 인자로 전달하도록 (defult는 end_effector 위치)
+        self.current_ee_position = self._solve_fk(self.joint_states)
         node.get_logger().info(f"Maniputor {self.side} is located in {self.current_ee_position}")
         node.get_logger().info(f"Manipulator {side} is created well!")
     
@@ -106,7 +106,7 @@ class Manipulator:
             self.joint_states = msg.position
 
         # Joint state에 맞춰 fk계산해서 current_position update
-        self.current_ee_position = self._solve_fk(self.side, self.joint_states)
+        self.current_ee_position = self._solve_fk(self.joint_states)
 
 
     def _load_dh_params(self, side):
@@ -182,7 +182,7 @@ class Manipulator:
         except Exception as e:
             self.node.get_logger().error(f'IK computation fail : {e}')
 
-            return False, None
+            return False, self.joint_states
     
 
     def _solve_fk(self, positions: np.ndarray) -> np.ndarray:
