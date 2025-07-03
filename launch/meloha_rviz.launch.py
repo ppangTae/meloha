@@ -3,25 +3,35 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
+    use_vive_tracker = LaunchConfiguration('use_vive_tracker', default='true')
 
-    urdf_file_name = 'simple_meloha.urdf.xml'
-    urdf = os.path.join(
+    declare_use_sim  = DeclareLaunchArgument(
+        'use_sim_time', default_value='false',
+        description='Use simulation clock')
+
+    declare_use_vive = DeclareLaunchArgument(
+        'use_vive_tracker', default_value='false',
+        description='If true, assume /joint_states comes from Vive Tracker '
+                    'and skip joint_state_publisher_gui')
+
+    urdf_path = PathJoinSubstitution([
         get_package_share_directory('meloha'),
-        'urdf',
-        urdf_file_name)
-    with open(urdf, 'r') as infp:
+        'urdf', 'simple_meloha.urdf.xml'
+    ])
+    with open(urdf_path, 'r') as infp:
         robot_desc = infp.read()
 
-    rviz_config_path = os.path.join(
-        os.getenv("HOME"), 'meloha_ws', 'install', 'meloha',
-        'share', 'meloha', 'rviz', 'meloha.rviz'
-    )
+    rviz_config_path = PathJoinSubstitution([
+        get_package_share_directory('meloha'),
+        'rviz',
+        'meloha.rviz'
+    ])
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -34,7 +44,16 @@ def generate_launch_description():
             name='robot_state_publisher',
             output='screen',
             parameters=[{'use_sim_time': use_sim_time, 'robot_description': robot_desc}],
-            arguments=[urdf]),
+            arguments=[urdf_path]),
+        Node(
+            package='joint_state_publisher_gui',
+            executable='joint_state_publisher_gui',
+            name='joint_state_publisher_gui',
+            output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time
+            }]
+        ),
         ExecuteProcess(
             cmd=['rviz2', '-d', rviz_config_path],
             output='screen'
