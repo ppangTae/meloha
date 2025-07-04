@@ -11,6 +11,8 @@ from meloha.constants import (
     DATA_DIR,
     COLOR_IMAGE_TOPIC_NAME,
     DT,
+    LEFT_ARM_START_POSE,
+    RIGHT_ARM_START_POSE
 )
 
 from meloha.robot import (
@@ -279,8 +281,43 @@ class ViveTracker:
         print(f'{tracker_pub_freq=:.2f}')
 
         
-def get_arm_joint_positions(bot: Manipulator):
+def get_arm_joint_positions(bot: Manipulator) -> list:
     return bot.joint_states
+
+
+def move_arms(
+    bot_list: Sequence[Manipulator],
+    target_pose_list: Sequence[Sequence[float]],
+    moving_time: float = 1.0
+)-> None:
+    
+    num_steps = int(moving_time/DT)
+    curr_pose_list = [get_arm_joint_positions(bot) for bot in bot_list]
+    zipped_lists = zip(curr_pose_list, target_pose_list)
+    traj_list = [
+        np.linspace(curr_pose, target_pose, num_steps) for curr_pose, target_pose in zipped_lists
+    ]
+    for t in range(num_steps):
+        for bot_id, bot in enumerate(bot_list):
+            bot.set_joint_positions(traj_list[bot_id][t])
+        time.sleep(DT)
+
+def move_arms_sim(
+    bot_list: Sequence[Manipulator],
+    target_pose_list: Sequence[Sequence[float]],
+    moving_time: float = 1.0
+)-> None:
+    
+    num_steps = int(moving_time/DT)
+    curr_pose_list = [get_arm_joint_positions(bot) for bot in bot_list]
+    zipped_lists = zip(curr_pose_list, target_pose_list)
+    traj_list = [
+        np.linspace(curr_pose, target_pose, num_steps) for curr_pose, target_pose in zipped_lists
+    ]
+    for t in range(num_steps):
+        for bot_id, bot in enumerate(bot_list):
+            bot.set_joint_positions(traj_list[bot_id][t])
+        time.sleep(DT)
 
 def convert_angle_to_position(rad: Union[float, list]) -> Union[int, list]:
     """
@@ -426,6 +463,38 @@ def plot_vive_tracker_displacement(displacement_history):
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
+
+def test_move_arms():
+
+    node = create_meloha_global_node('meloha')
+
+    follower_bot_left = Manipulator(
+        side="left",
+        node=node,
+    )
+    follower_bot_right = Manipulator(
+        side="right",
+        node=node,
+    )    
+
+    target_pose = [1.0, 0.3, 0.1]
+    node.get_logger().info(f"박스를 잡는 위치로 이동합니다")
+    move_arms_sim(
+        [follower_bot_left, follower_bot_right],
+        [target_pose, -target_pose],
+        moving_time=2
+    )
+    node.get_logger().info(f"이동을 마쳤습니다.")
+
+    time.sleep(1)
+
+    node.get_logger().info(f"home position으로 이동합니다.")
+    move_arms_sim(
+        [follower_bot_left, follower_bot_right],
+        [convert_angle_to_position(LEFT_ARM_START_POSE), convert_angle_to_position(RIGHT_ARM_START_POSE)],
+        moving_time=2
+    )
+    node.get_logger().info(f"이동을 마쳤습니다.")
 
 if __name__ == "__main__":
     test_vive_tracker()
