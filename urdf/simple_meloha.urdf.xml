@@ -24,7 +24,7 @@
     <joint name="joint_1_left" type="revolute">
         <parent link="head"/>
         <child link="motor_1_left"/>
-        <origin xyz="-0.1 0 0 " rpy="1.57 0 -1.57"/>
+        <origin xyz="-0.1 0 0 " rpy="1.57 0 -1.57"/> <!-- -0.1 매크로로 변경-->
         <axis xyz="0 0 1"/>
         <limit effort="1.0" lower="-3.14" upper="3.14" velocity="1.0"/>
     </joint>
@@ -44,7 +44,7 @@
     <joint name="joint_2_left" type="revolute">
         <parent link="motor_1_left"/>
         <child link="motor_2_left"/>
-        <origin xyz="0 0 0.2 " rpy="-1.57 0 0"/>
+        <origin xyz="0 0 0.23 " rpy="-1.57 0 0"/> <!-- 0.2 매크로로 변경-->
         <axis xyz="0 0 1"/>
         <limit effort="1.0" lower="-3.14" upper="3.14" velocity="1.0"/>
     </joint>
@@ -64,7 +64,7 @@
     <joint name="joint_3_left" type="revolute">
         <parent link="motor_2_left"/>
         <child link="motor_3_left"/>
-        <origin xyz="0.3 0 0 " rpy="0 0 0"/>
+        <origin xyz="0.3 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
         <axis xyz="0 0 1"/>
         <limit effort="1.0" lower="-3.14" upper="3.14" velocity="1.0"/>
     </joint>
@@ -84,7 +84,7 @@
     <joint name="ee_left_connect" type="fixed">
         <parent link="motor_3_left"/>
         <child link="ee_left"/>
-        <origin xyz="0.3 0 0 " rpy="0 0 0"/>
+        <origin xyz="0.5 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
     </joint>
 
     <link name="ee_left">
@@ -103,7 +103,7 @@
     <joint name="joint_1_right" type="revolute">
         <parent link="head"/>
         <child link="motor_1_right"/>
-        <origin xyz="0.1 0 0 " rpy="-1.57 0 -1.57"/>
+        <origin xyz="0.1 0 0 " rpy="-1.57 0 -1.57"/> <!-- 0.1 매크로로 변경-->
         <axis xyz="0 0 1"/>
         <limit effort="1.0" lower="-3.14" upper="3.14" velocity="1.0"/>
     </joint>
@@ -123,7 +123,7 @@
     <joint name="joint_2_right" type="revolute">
         <parent link="motor_1_right"/>
         <child link="motor_2_right"/>
-        <origin xyz="0 0 0.2 " rpy="1.57 0 0"/>
+        <origin xyz="0 0 0.23" rpy="1.57 0 0"/> <!-- 0.2 매크로로 변경-->
         <axis xyz="0 0 1"/>
         <limit effort="1.0" lower="-3.14" upper="3.14" velocity="1.0"/>
     </joint>
@@ -143,7 +143,7 @@
     <joint name="joint_3_right" type="revolute">
         <parent link="motor_2_right"/>
         <child link="motor_3_right"/>
-        <origin xyz="0.3 0 0 " rpy="0 0 0"/>
+        <origin xyz="0.3 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
         <axis xyz="0 0 1"/>
         <limit effort="1.0" lower="-3.14" upper="3.14" velocity="1.0"/>
     </joint>
@@ -163,7 +163,7 @@
     <joint name="ee_right_connect" type="fixed">
         <parent link="motor_3_right"/>
         <child link="ee_right"/>
-        <origin xyz="0.3 0 0 " rpy="0 0 0"/>
+        <origin xyz="0.5 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
     </joint>
 
     <link name="ee_right">
