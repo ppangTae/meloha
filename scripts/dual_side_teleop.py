@@ -63,7 +63,7 @@ def main(args) -> None:
     # follower_bot_right.go_to_home_pose()
 
     while rclpy.ok():
-        moving_scale = 1.0
+        moving_scale = 1.2
         left_displacement = moving_scale * tracker_left.displacement
         right_displacement = moving_scale * tracker_right.displacement
 
@@ -103,12 +103,15 @@ def main(args) -> None:
     robot_shutdown(node)
 
 if __name__ == '__main__':
+    # python3 dual_side_teleop.py -> real robot
+    # python3 dual_side_teleop.py --is_sim -> simulation 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--is_sim',
-        action='store',
-        default=True,
-        help='If set, runs in RViz (simulation mode). Otherwise, runs on real robot.'
+        action='store_const',
+        const=True,
+        default=False,
+        help='If set, runs in simulation. Default runs on real robot.'
     )
     args = parser.parse_args()
-    main(vars(args))  # 딕셔너리 형태로 main에 전달
+    main(vars(args))

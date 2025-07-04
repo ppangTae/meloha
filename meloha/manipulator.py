@@ -52,7 +52,7 @@ class Manipulator:
 
         self.T10 = self.get_T10() # Transformation matrix from joint 1 to base frame (joint 0)
 
-        self.joint_states: list = [0.0, 0.0, 0.0] # ! sim
+        self.joint_states: list = None
         self.current_ee_position = None
 
         self.js_mutex = Lock()
@@ -97,7 +97,8 @@ class Manipulator:
             rclpy.spin_once(self.node)
         self.node.get_logger().debug('Found joint states. Continuing...')
         self.current_ee_position = self._solve_fk(self.joint_states)
-        node.get_logger().info(f"Maniputor {self.side} is located in {self.current_ee_position}")
+        node.get_logger().info(f"Manipurator {self.side} is located in {self.current_ee_position}")
+        node.get_logger().info(f"Manipurator {self.side} is located in {self.joint_states}")
         node.get_logger().info(f"Manipulator {side} is created well!")
     
     def _joint_state_cb(self, msg: JointState):
@@ -257,7 +258,7 @@ class Manipulator:
     ) -> bool:
 
         self.node.get_logger().debug(f'Setting {joint_positions=}')
-        if self._check_collision(joint_positions):
+        if self._check_collision():
             self._publish_commands(joint_positions)
             return True
         else:

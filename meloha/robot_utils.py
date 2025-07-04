@@ -192,7 +192,7 @@ class ViveTracker:
         self.previous_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
-        self.update_disp: bool = False # Whether the Vive Tracker button has been pressed
+        self.update_disp: bool = True # Whether the Vive Tracker button has been pressed
 
         # VIVE Tracker Module Initialization
         self.tf_buffer = Buffer()
@@ -424,10 +424,11 @@ def test_vive_tracker():
 
     node.get_logger().info("vive tracker is started!")
 
-    node.get_logger().info(f"wait for 3 seconds")
+    node.get_logger().info(f"wait for 10 seconds")
+    time.sleep(8)
 
     start_time = time.time()
-    while time.time() - start_time < 20:
+    while time.time() - start_time < 8:
         time.sleep(1.0/30.0)
 
     plot_vive_tracker_displacement(vive_tracker.displacement_history)

@@ -35,7 +35,7 @@ def launch_setup(context, *args, **kwargs):
         executable='robot_state_publisher',
         parameters=[{'robot_description': robot_desc}],
         output='screen',
-        condition=UnlessCondition(LaunchConfiguration('use_vive_tracker')),
+        condition=IfCondition(LaunchConfiguration('use_vive_tracker')),
     )
 
     joint_state_publisher_gui_node = Node(
