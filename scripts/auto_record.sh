@@ -1,8 +1,7 @@
 ROS_DISTRO=humble
 
-ROS_SETUP_PATH=/opt/ros/$ROS_DISTRO/setup.bash
-WORKSPACE_SETUP_PATH=$HOME/meloha_ws/install/setup.bash
 RECORD_EPISODES="$HOME/meloha_ws/src/meloha/scripts/record_episodes.py"
+DUAL_ARM_TELEOP="$HOME/meloha_ws/src/meloha/scripts/dual_arm_teleop.py"
 
 
 source $ROS_SETUP_PATH || exit 1
@@ -13,9 +12,9 @@ print_usage() {
   echo "auto_record.sh task num_episodes"
 }
 
-nargs="$#"
+nargs="$#" # 스크립트에 전달된 인자의 개수
 
-if [ $nargs -lt 2 ]; then
+if [ $nargs -lt 2 ]; then # -lt == '<'
   echo "Passed incorrect number of arguments"
   print_usage
   exit 1

@@ -4,6 +4,7 @@ import argparse
 import os
 import time
 import signal
+import pyfiglet
 from functools import partial
 
 from meloha.constants import (
@@ -27,7 +28,7 @@ from meloha.robot_utils import (
     convert_angle_to_position
 )
 
-from meloha.utils import normalize_log_level
+from meloha.utils import normalize_log_level, data_collection_countdown
 
 import cv2
 import h5py
@@ -81,15 +82,10 @@ def capture_one_episode(
         print(f'Dataset already exist at \n{dataset_path}\nHint: set overwrite to True.')
         exit()
 
-    # opening_ceremony(env.follower_bot_left, env.follower_bot_right)
-    # env.follower_bot_left.go_to_home_pose()
-    # env.follower_bot_right.go_to_home_pose()
-
-    node.get_logger().info("Please Ready... 5sec")
-    time.sleep(5)
+    # TODO : figlet
+    data_collection_countdown()
 
     # Data collection
-    node.get_logger().info("Data collection start\n")
     obs = env.reset()
     observations = [obs]
     actions = []
@@ -241,6 +237,8 @@ def main(args: dict):
         )
         if is_healthy:
             break
+    
+    print(pyfiglet.figlet_format("DATACOLLECTION FINISH"))
 
 
 def get_auto_index(dataset_dir, dataset_name_prefix='', data_suffix='hdf5'):

@@ -88,7 +88,7 @@ def main(args) -> None:
                     follower_bot_left.current_ee_position = left_ee_target
                 if right_ik_success:
                     follower_bot_right.current_ee_position = right_ee_target
-                node.get_logger().info(f'JointState 발행: {js.position}')
+                node.get_logger().debug(f'JointState 발행: {js.position}')
             else:
                 action = list(action)
                 follower_bot_left.set_joint_positions(action[:3])

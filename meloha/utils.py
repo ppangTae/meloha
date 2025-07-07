@@ -5,6 +5,7 @@ import time
 import numpy as np
 import cv2
 import h5py
+import pyfiglet
 
 # 유효한 로그 레벨 매핑 딕셔너리
 LOG_LEVEL_MAP = {
@@ -19,9 +20,6 @@ LOG_LEVEL_MAP = {
 
 def get_transformation_matrix(theta: float, alpha: float, a: float, d: float) -> np.ndarray:
     
-    theta = np.deg2rad(theta)
-    alpha = np.deg2rad(alpha)
-
     ct, st = np.cos(theta), np.sin(theta)
     ca, sa = np.cos(alpha), np.sin(alpha)
     
@@ -190,6 +188,13 @@ def decode_and_save_images(hdf5_path, output_dir, save_to_disk=True, max_frames=
     if not save_to_disk:
         return image_dict
 
-
+def data_collection_countdown(start=5, delay=1):
+    for i in range(start, 0, -1):
+        os.system('clear')  # macOS/Linux
+        banner = pyfiglet.figlet_format(str(i))
+        print(banner)
+        time.sleep(delay)
+    os.system('clear')
+    print(pyfiglet.figlet_format("DATACOLLECTION START"))
 
 

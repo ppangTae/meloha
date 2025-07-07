@@ -1,8 +1,8 @@
 dh_params:
   joint0:
     # DH parameter for base frame to intermdiate joint frame
-    theta: 90
-    alpha: 90
+    theta: 1.5708
+    alpha: 1.5708
     a: 0.0
     d: 0.0
   joint0.5:
@@ -13,7 +13,7 @@ dh_params:
     a: 0.0
     d: 0.1
   joint1:  # DH parameter for shoulder motor frame to arm motor frame  
-    alpha: -90
+    alpha: -1.5708
     a: 0
     d: 0.23
   joint2:  # DH parameter for arm motor frame to elbow motor frame  
