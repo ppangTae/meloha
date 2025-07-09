@@ -1,11 +1,8 @@
+#!/bin/bash
 ROS_DISTRO=humble
 
 RECORD_EPISODES="$HOME/meloha_ws/src/meloha/scripts/record_episodes.py"
 DUAL_ARM_TELEOP="$HOME/meloha_ws/src/meloha/scripts/dual_arm_teleop.py"
-
-
-source $ROS_SETUP_PATH || exit 1
-source $WORKSPACE_SETUP_PATH || exit 1
 
 print_usage() {
   echo "USAGE:"
@@ -34,4 +31,12 @@ do
     echo "Failed to execute command. Returning"
     exit 1
   fi
+  python3 "$DUAL_ARM_TELEOP"
+  if [ $? -ne 0 ]; then
+    echo "Failed to execute command. Returning"
+    exit 1
+  fi
+  ros2 topic pub -1 /multi_set_position \
+   multi_dynamixel_interfaces/msg/MultiSetPosition \
+    '{ids: [0, 1, 3, 5, 6, 7], positions: [0, 100000, -200000, 0, -100000, 200000]}'
 done

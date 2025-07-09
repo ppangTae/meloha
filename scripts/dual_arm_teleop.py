@@ -4,6 +4,7 @@ import argparse
 import signal
 import time
 import math
+import pyfiglet
 from functools import partial
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Header
@@ -25,11 +26,12 @@ from meloha.robot import (
     robot_shutdown,
     robot_startup,
 )
+from meloha.utils import print_countdown
 import rclpy
 
 def main(args) -> None:
 
-    # time.sleep(5)
+    print_countdown("TELEOP START")
 
     node = create_meloha_global_node('meloha')
 
@@ -63,14 +65,14 @@ def main(args) -> None:
     # follower_bot_right.go_to_home_pose()
 
     while rclpy.ok():
-        moving_scale = 1.2
+        moving_scale = 2.5
         left_displacement = moving_scale * tracker_left.displacement
         right_displacement = moving_scale * tracker_right.displacement
 
         left_displacement[1] = -left_displacement[1]  # Y-axis inversion for left side
         right_displacement[1] = -right_displacement[1]  # Y-axis inversion for right side
 
-        if tracker_left.update_disp: # Pressed left button, then start to move
+        if tracker_left.button: # Pressed left button, then start to move
             left_ee_target = follower_bot_left.current_ee_position + left_displacement
             right_ee_target = follower_bot_right.current_ee_position + right_displacement
             left_ik_success, left_action = follower_bot_left.solve_ik(left_ee_target)
@@ -100,6 +102,9 @@ def main(args) -> None:
                     follower_bot_right.current_ee_position = right_ee_target
 
         time.sleep(DT)
+
+        if not tracker_right.button:
+            break
     robot_shutdown(node)
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ from meloha.robot_utils import (
     convert_angle_to_position
 )
 
-from meloha.utils import normalize_log_level, data_collection_countdown
+from meloha.utils import normalize_log_level, print_countdown
 
 import cv2
 import h5py
@@ -82,8 +82,7 @@ def capture_one_episode(
         print(f'Dataset already exist at \n{dataset_path}\nHint: set overwrite to True.')
         exit()
 
-    # TODO : figlet
-    data_collection_countdown()
+    print_countdown("DATACOLLECTION START")
 
     # Data collection
     obs = env.reset()
