@@ -49,7 +49,7 @@ class Manipulator:
             self.get_T10()
         )  # Transformation matrix from joint 1 to base frame (joint 0)
 
-        self.joint_states: list = None
+        self.joint_states: list = [0.0, 0.0, 0.0]
         self.current_ee_position = None
 
         self.js_mutex = Lock()

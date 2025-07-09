@@ -66,7 +66,7 @@ def launch_setup(context, *args, **kwargs):
 
     usbcam_actions = []
     usbcam_names = [
-        LaunchConfiguration('usbcam_high_name'),
+        LaunchConfiguration('usbcam_head_name'),
         LaunchConfiguration('usbcam_left_wrist_name'),
         LaunchConfiguration('usbcam_right_wrist_name')
     ]
@@ -149,8 +149,8 @@ def generate_launch_description():
     )
     declared_arguments.append(
         DeclareLaunchArgument(
-            'usbcam_high_name',
-            default_value='usb_cam_high',
+            'usbcam_head_name',
+            default_value='usb_cam_head',
         )
     )
     declared_arguments.append(
@@ -192,5 +192,7 @@ def generate_launch_description():
             choices=('True', 'False'),
             description='If True, launch joint_state_publisher_gui node')
     )
+
+    
 
     return LaunchDescription(declared_arguments + [OpaqueFunction(function=launch_setup)])

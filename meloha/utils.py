@@ -188,13 +188,13 @@ def decode_and_save_images(hdf5_path, output_dir, save_to_disk=True, max_frames=
     if not save_to_disk:
         return image_dict
 
-def data_collection_countdown(start=5, delay=1):
+def print_countdown(msg:str, start=5, delay=1):
     for i in range(start, 0, -1):
-        os.system('clear')  # macOS/Linux
+        # os.system('clear')  # macOS/Linux
         banner = pyfiglet.figlet_format(str(i))
         print(banner)
         time.sleep(delay)
-    os.system('clear')
-    print(pyfiglet.figlet_format("DATACOLLECTION START"))
+    # os.system('clear')
+    print(pyfiglet.figlet_format(msg))
 
 

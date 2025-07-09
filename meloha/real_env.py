@@ -96,7 +96,6 @@ class RealEnv:
 
     def step(self, action, get_obs=True):
 
-        max_allowed_joint_angle = self.max_allowed_joint_angle
 
         current_left_positions = self.follower_bot_left.joint_states
         current_right_positions = self.follower_bot_right.joint_states
@@ -105,13 +104,6 @@ class RealEnv:
 
         delta_left = target_left_positions - current_left_positions
         delta_right = target_right_positions - current_right_positions
-
-        max_abs_delta= np.max(np.abs(delta_left), np.abs(delta_right))
-
-        # 만약 최대 변화량이 10도를 초과하면 에러를 발생시키고 종료합니다.
-        if max_abs_delta > max_allowed_joint_angle:
-            print(f"Error: 왼쪽 로봇 조인트 변화량이 10도를 초과했습니다. ({np.rad2deg(max_abs_delta):.2f}도)")
-            sys.exit(1) # 프로그램 종료
 
         self.follower_bot_left.set_joint_positions(action[:3])
         self.follower_bot_right.set_joint_positions(action[3:])
@@ -151,18 +143,18 @@ def get_action(
     follower_bot_left: Manipulator,
     follower_bot_right: Manipulator,
 ):
-    moving_scale = 1.0
+    moving_scale = 3.0
     left_displacement = moving_scale * tracker_left.displacement
     right_displacement = moving_scale * tracker_right.displacement
 
-    left_displacement[1] = -left_displacement[0] # Y-axis inversion for left side
-    right_displacement[1] = -right_displacement[0] # Y-axis inversion for left side
+    left_displacement[1] = -left_displacement[1] # Y-axis inversion for left side
+    right_displacement[1] = -right_displacement[1] # Y-axis inversion for left side
 
-    ee_target_left = follower_bot_left.current_ee_position + left_displacement
-    ee_target_right = follower_bot_right.current_ee_position + right_displacement
+    left_ee_target = follower_bot_left.current_ee_position + left_displacement
+    right_ee_target = follower_bot_right.current_ee_position + right_displacement
 
-    left_ik_success, left_action = follower_bot_left.solve_ik(ee_target_left)
-    right_ik_success, right_action = follower_bot_right.solve_ik(ee_target_right)
+    left_ik_success, left_action = follower_bot_left.solve_ik(left_ee_target)
+    right_ik_success, right_action = follower_bot_right.solve_ik(right_ee_target)
 
     if left_ik_success is False or right_ik_success is False:
         action = np.concatenate([

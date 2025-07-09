@@ -192,7 +192,7 @@ class ViveTracker:
         self.previous_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
-        self.update_disp: bool = True # Whether the Vive Tracker button has been pressed
+        self.button: bool = True # Whether the Vive Tracker button has been pressed
 
         # VIVE Tracker Module Initialization
         self.tf_buffer = Buffer()
@@ -262,14 +262,17 @@ class ViveTracker:
 
     def joy_callback(self, msg: Joy):
         # 버튼 눌림 상태 확인
+        tracker_sn:str = msg.header.frame_id
         button_states = msg.buttons
+
         if any(button_states):
-            self.update_disp = not self.update_disp
-            self.node.get_logger().info(f'🔴 Button Pressed')
-            if self.update_disp:
-                self.node.get_logger().info(f"start to publish JointState")
-            else:
-                self.node.get_logger().info(f"stop to publish JointState")
+
+            if tracker_sn == "LHR-21700E73":
+                self.button = not self.button
+                self.node.get_logger().info(f"Left Vive Tracker Button Pressed")
+            elif tracker_sn == "LHR-0B6AA285":
+                self.button = not self.button
+                self.node.get_logger().info(f"Right Vive Tracker Button Pressed")
 
     def print_diagnostics(self):
         def dt_helper(ts):
