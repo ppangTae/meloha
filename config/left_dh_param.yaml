@@ -22,5 +22,5 @@ dh_params:
     d: 0.0
   joint3:  # DH parameter for elbow motor frame to ee frame
     alpha: 0
-    a: 0.3
+    a: 0.47
     d: 0.0

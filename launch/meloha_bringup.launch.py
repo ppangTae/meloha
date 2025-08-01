@@ -15,6 +15,7 @@ from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitut
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.parameter_descriptions import ParameterValue
+from launch.launch_description_sources import AnyLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -46,6 +47,22 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration('use_jsp_gui')),
     )
 
+    static_tf_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='vive_world',
+        arguments=[
+            '--x', '0',
+            '--y', '0',
+            '--z', '0',
+            '--roll', '1.5708',
+            '--pitch', '0',
+            '--yaw', '-3.14',
+            '--frame-id', 'libsurvive_world',
+            '--child-frame-id', 'vive_world',
+        ]
+    )
+
     libsurvive_launch_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
@@ -64,9 +81,22 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration('use_vive_tracker')),
     )
 
+    astra_camera_launch_include = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('astra_camera'),
+                'launch',
+                'astro_pro_plus.launch.xml'
+            ])
+        ]),
+        launch_arguments={
+            'namespace': 'astra_camera',
+        }.items(),
+        condition=IfCondition(LaunchConfiguration('use_camera')),
+    )
+
     usbcam_actions = []
     usbcam_names = [
-        LaunchConfiguration('usbcam_head_name'),
         LaunchConfiguration('usbcam_left_wrist_name'),
         LaunchConfiguration('usbcam_right_wrist_name')
     ]
@@ -89,7 +119,7 @@ def launch_setup(context, *args, **kwargs):
         )
 
     usbcam_ros_launch_includes_group_action = GroupAction(
-      condition=IfCondition(LaunchConfiguration('use_cameras')),
+      condition=IfCondition(LaunchConfiguration('use_camera')),
       actions=usbcam_actions,
     )
 
@@ -108,7 +138,7 @@ def launch_setup(context, *args, **kwargs):
     loginfo_action = LogInfo(msg=[
          '\nBringing up MELOHA with the following launch configurations: ',
          '\n- use_vive_tracker: ', LaunchConfiguration('use_vive_tracker'),
-         '\n- use_cameras: ', LaunchConfiguration('use_cameras'),
+         '\n- use_camera: ', LaunchConfiguration('use_camera'),
          '\n- use_rviz: ', LaunchConfiguration('use_rviz'),
          '\n- use_jsp_gui: ', LaunchConfiguration('use_jsp_gui'),
     ])
@@ -116,7 +146,9 @@ def launch_setup(context, *args, **kwargs):
     return [
         robot_state_publisher_node,
         joint_state_publisher_gui_node,
+        static_tf_node,
         rviz2_node,
+        astra_camera_launch_include,
         libsurvive_launch_include,
         usbcam_ros_launch_includes_group_action,
         loginfo_action,
@@ -141,7 +173,7 @@ def generate_launch_description():
     # About Camera LaunchArgument
     declared_arguments.append(
         DeclareLaunchArgument(
-            'use_cameras',   
+            'use_camera',   
             default_value='False',
             choices=('True', 'False'),
             description='If True, launch USB camera nodes'

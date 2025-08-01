@@ -147,8 +147,10 @@ def get_action(
     left_displacement = moving_scale * tracker_left.displacement
     right_displacement = moving_scale * tracker_right.displacement
 
-    left_displacement[1] = -left_displacement[1] # Y-axis inversion for left side
-    right_displacement[1] = -right_displacement[1] # Y-axis inversion for left side
+    left_displacement[0] = -left_displacement[0] # X-axis inversion for left side
+    left_displacement[1] = -left_displacement[1]  # Y-axis inversion for left side
+    right_displacement[0] = -right_displacement[0]
+    right_displacement[1] = -right_displacement[1]
 
     left_ee_target = follower_bot_left.current_ee_position + left_displacement
     right_ee_target = follower_bot_right.current_ee_position + right_displacement

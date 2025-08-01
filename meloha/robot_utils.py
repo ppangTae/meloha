@@ -2,6 +2,7 @@ from collections import deque
 import time
 from typing import Sequence, Union
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 
 import os
 import cv2
@@ -192,15 +193,14 @@ class ViveTracker:
         self.previous_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
-        self.button: bool = True # Whether the Vive Tracker button has been pressed
+        self.button: bool = False # Whether the Vive Tracker button has been pressed
 
         # VIVE Tracker Module Initialization
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self.node)
 
-        # Serial Number of tracker
         self.target_frame = self.node.declare_parameter(
-            f'{side}_target_frame', 'LHB-52B7DDF6').get_parameter_value().string_value
+            f'{side}_target_frame', 'vive_world').get_parameter_value().string_value
         self.source_frame = self.node.declare_parameter(
             f'{side}_source_frame', tracker_sn).get_parameter_value().string_value
         
@@ -427,21 +427,23 @@ def test_vive_tracker():
 
     node.get_logger().info("vive tracker is started!")
 
-    node.get_logger().info(f"wait for 10 seconds")
-    time.sleep(8)
+    node.get_logger().info(f"wait for 5 seconds")
+    time.sleep(10)
 
     start_time = time.time()
-    while time.time() - start_time < 8:
+    while time.time() - start_time < 5:
         time.sleep(1.0/30.0)
 
     plot_vive_tracker_displacement(vive_tracker.displacement_history)
 
     robot_shutdown(node)
 
+
 def plot_vive_tracker_displacement(displacement_history):
     """
-    Plot the x, y, and z components of the Vive Tracker's displacement over time
-    using separate subplots for each axis, with autoscaling for better visibility.
+    Plot the x, y, and z components of the Vive Tracker's displacement over time.
+    Each axis subplot has its own autoscaled y-limits (based on data),
+    but uses a consistent tick interval of 0.2.
     """
 
     if not displacement_history:
@@ -449,23 +451,41 @@ def plot_vive_tracker_displacement(displacement_history):
         return
 
     displacement_array = np.array(displacement_history)
-    time_steps = np.arange(len(displacement_array)) / 30.0  # Convert indices to seconds (30 Hz)
+    time_steps = np.arange(len(displacement_array)) / 30.0  # Assume 30 Hz
 
     axis_labels = ['X', 'Y', 'Z']
     colors = ['r', 'g', 'b']
 
     plt.figure(figsize=(10, 8))
     for i in range(3):
+        values = displacement_array[:, i]
+        min_val = np.min(values)
+        max_val = np.max(values)
+
+        # y축 범위를 0.2 간격으로 맞춰서 딱 떨어지게
+        y_min = math.floor(min_val * 5) / 5.0  # 0.2 단위로 내림
+        y_max = math.ceil(max_val * 5) / 5.0   # 0.2 단위로 올림
+
+        # 데이터가 너무 평평할 경우 중앙 정렬을 위해 여유를 줌
+        if y_max - y_min < 0.4:
+            center = (y_min + y_max) / 2
+            y_min = center - 0.2
+            y_max = center + 0.2
+
         plt.subplot(3, 1, i + 1)
-        plt.plot(time_steps, displacement_array[:, i], color=colors[i], label=f'{axis_labels[i]} Displacement')
+        plt.plot(time_steps, values, color=colors[i], label=f'{axis_labels[i]} Displacement')
         plt.ylabel(f'{axis_labels[i]} (meters)')
-        plt.legend(loc='upper right')
+        plt.ylim(y_min, y_max)
+        plt.gca().yaxis.set_major_locator(MultipleLocator(0.2))  # 눈금 간격 고정
         plt.grid(True)
+        plt.legend(loc='upper right')
         if i == 2:
             plt.xlabel("Time (seconds)")
+
     plt.suptitle("Vive Tracker Displacement Over Time (per axis)")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
+
 
 
 def test_move_arms():

@@ -49,7 +49,13 @@ class Manipulator:
             self.get_T10()
         )  # Transformation matrix from joint 1 to base frame (joint 0)
 
-        self.joint_states: list = [0.0, 0.0, 0.0]
+        # self.joint_states: list = None # -> real robot
+
+        # simulation 
+        if side == 'left':
+            self.joint_states: list = [0.0, -0.6259112759506524, 0.6259050168378929]
+        elif side == 'right':
+            self.joint_states: list = [0.0, 0.6259112759506524, -0.6259112759506524]
         self.current_ee_position = None
 
         self.js_mutex = Lock()
@@ -307,7 +313,7 @@ class Manipulator:
         # Check collision
         x, y, z = self.current_ee_position
 
-        if (-0.18 <= x <= 0.18) and (0 <= y <= 0.6) and (-0.11 <= z <= 0.11):
+        if (-0.18 <= x <= 0.18) and (0 <= y <= 0.6) and (-0.12 <= z <= 0.12):
             self.node.get_logger().error(
                 f"[충돌 위험] End-effector가 몸체에 부딪힐 수 있습니다: x={x:.2f}, y={y:.2f}, z={z:.2f}\n \
                     안전을 위해 프로그램을 강제종료 합니다."

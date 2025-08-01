@@ -61,50 +61,54 @@ def main(args) -> None:
 
     robot_startup(node)
 
-    # follower_bot_left.go_to_home_pose()
-    # follower_bot_right.go_to_home_pose()
-
     while rclpy.ok():
-        moving_scale = 2.5
+        moving_scale = 1.5
         left_displacement = moving_scale * tracker_left.displacement
         right_displacement = moving_scale * tracker_right.displacement
 
+        left_displacement[0] = -left_displacement[0]
         left_displacement[1] = -left_displacement[1]  # Y-axis inversion for left side
+        right_displacement[0] = -right_displacement[0]
         right_displacement[1] = -right_displacement[1]  # Y-axis inversion for right side
 
-        if tracker_left.button: # Pressed left button, then start to move
-            left_ee_target = follower_bot_left.current_ee_position + left_displacement
-            right_ee_target = follower_bot_right.current_ee_position + right_displacement
-            left_ik_success, left_action = follower_bot_left.solve_ik(left_ee_target)
-            right_ik_success, right_action = follower_bot_right.solve_ik(right_ee_target)
-            action = np.concatenate([left_action, right_action])
-            if is_sim:
-                js = JointState()
-                js.header = Header()
-                js.header.stamp = node.get_clock().now().to_msg()
-                js.name = ['joint_1_left', 'joint_2_left', 'joint_3_left',
-                           'joint_1_right', 'joint_2_right', 'joint_3_right']
-                js.position = list(action)
-                joint_state_publisher.publish(js)
-                if left_ik_success:
-                    follower_bot_left.current_ee_position = left_ee_target
-                if right_ik_success:
-                    follower_bot_right.current_ee_position = right_ee_target
-                node.get_logger().debug(f'JointState 발행: {js.position}')
-            else:
-                action = list(action)
-                follower_bot_left.set_joint_positions(action[:3])
-                follower_bot_right.set_joint_positions(action[3:])
-                
-                if left_ik_success:
-                    follower_bot_left.current_ee_position = left_ee_target
-                if right_ik_success:
-                    follower_bot_right.current_ee_position = right_ee_target
+        left_norm = np.linalg.norm(left_displacement)
+        right_norm = np.linalg.norm(right_displacement)
 
-        time.sleep(DT)
+        if left_norm > 0.005 or right_norm > 0.005:
+            if tracker_left.button: # Pressed left button, then start to move
+                left_ee_target = follower_bot_left.current_ee_position + left_displacement
+                right_ee_target = follower_bot_right.current_ee_position + right_displacement
+                left_ik_success, left_action = follower_bot_left.solve_ik(left_ee_target)
+                right_ik_success, right_action = follower_bot_right.solve_ik(right_ee_target)
+                action = np.concatenate([left_action, right_action])
+                if is_sim:
+                    js = JointState()
+                    js.header = Header()
+                    js.header.stamp = node.get_clock().now().to_msg()
+                    js.name = ['joint_1_left', 'joint_2_left', 'joint_3_left',
+                            'joint_1_right', 'joint_2_right', 'joint_3_right']
+                    js.position = list(action)
+                    joint_state_publisher.publish(js)
+                    if left_ik_success:
+                        follower_bot_left.current_ee_position = left_ee_target
+                    if right_ik_success:
+                        follower_bot_right.current_ee_position = right_ee_target
+                    node.get_logger().info(f'JointState 발행: {js.position}')
+                else:
+                    action = list(action)
+                    follower_bot_left.set_joint_positions(action[:3])
+                    follower_bot_right.set_joint_positions(action[3:])
+                    
+                    if left_ik_success:
+                        follower_bot_left.current_ee_position = left_ee_target
+                    if right_ik_success:
+                        follower_bot_right.current_ee_position = right_ee_target
 
-        if not tracker_right.button:
-            break
+        # time.sleep(DT)
+        time.sleep(0.1) # ! 테스트를 위해 임의로 조정
+
+        # if not tracker_right.button:
+        #     break
     robot_shutdown(node)
 
 if __name__ == '__main__':
