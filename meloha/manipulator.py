@@ -49,13 +49,13 @@ class Manipulator:
             self.get_T10()
         )  # Transformation matrix from joint 1 to base frame (joint 0)
 
-        # self.joint_states: list = None # -> real robot
+        self.joint_states: list = None # -> real robot
 
         # simulation 
-        if side == 'left':
-            self.joint_states: list = [0.0, -0.6259112759506524, 0.6259050168378929]
-        elif side == 'right':
-            self.joint_states: list = [0.0, 0.6259112759506524, -0.6259112759506524]
+        # if side == 'left':
+        #     self.joint_states: list = [0.0, -0.6259112759506524, 0.6259050168378929]
+        # elif side == 'right':
+        #     self.joint_states: list = [0.0, 0.6259112759506524, -0.6259112759506524]
         self.current_ee_position = None
 
         self.js_mutex = Lock()
