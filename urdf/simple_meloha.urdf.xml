@@ -84,7 +84,7 @@
     <joint name="ee_left_connect" type="fixed">
         <parent link="motor_3_left"/>
         <child link="ee_left"/>
-        <origin xyz="0.5 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
+        <origin xyz="0.47 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
     </joint>
 
     <link name="ee_left">
@@ -163,7 +163,7 @@
     <joint name="ee_right_connect" type="fixed">
         <parent link="motor_3_right"/>
         <child link="ee_right"/>
-        <origin xyz="0.5 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
+        <origin xyz="0.47 0 0 " rpy="0 0 0"/> <!-- 0.3 매크로로 변경-->
     </joint>
 
     <link name="ee_right">
