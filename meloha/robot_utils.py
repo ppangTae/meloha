@@ -187,10 +187,8 @@ class ViveTracker:
         self.is_debug = is_debug
         self.node = node
 
-        self.initialized = False
-
         # Member variable for calculating position displacement
-        self.previous_position: np.ndarray = None
+        self.initial_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
         self.button: bool = False # Whether the Vive Tracker button has been pressed
@@ -212,22 +210,20 @@ class ViveTracker:
             10
         )
 
-        self.timer = self.node.create_timer(DT, self.get_tracker_disp_from_tf)
+        self.timer = self.node.create_timer(DT, self.get_tracker_position)
 
         if self.is_debug:
             self.displacement_history = []
 
-        while self.previous_position is None and rclpy.ok():
+        while self.initial_position is None and rclpy.ok():
             rclpy.spin_once(self.node)
-        self.node.get_logger().debug(f'Found VIVE Tracker {self.side} position. Continuing...')    
+        self.node.get_logger().info(f'Found VIVE Tracker {self.side} position. Continuing...')    
         self.node.get_logger().info(f"VIVE Tracker {self.side} is connected well!")
 
-    def get_tracker_disp_from_tf(self):
+    def get_tracker_position(self):
 
         """ 
-        Retrieve the current position of the VIVE Tracker from the TF tree and compute its displacement
-        since the last update. Updates the previous and current position attributes, as well as the
-        displacement vector. Called periodically by a timer.
+        Retrieve the current position of the VIVE Tracker from the TF tree
         """
 
         try:
@@ -243,15 +239,13 @@ class ViveTracker:
         
         pos = tracker_tf.transform.translation
 
-        if not self.initialized:
-            self.previous_position = np.array([pos.x, pos.y, pos.z])
+        if self.initial_position is None:
+            self.initial_position = np.array([pos.x, pos.y, pos.z])
             self.current_position = np.array([pos.x, pos.y, pos.z])
             self.displacement = np.array([0.0, 0.0 ,0.0])
-            self.initialized = True
         else:
             self.current_position = np.array([pos.x, pos.y, pos.z])
-            self.displacement = self.current_position - self.previous_position
-            self.previous_position = self.current_position
+            self.displacement = self.current_position - self.initial_position
 
         # TODO : vive tracker의 x,y,z 변위를 변수에다가 모두 저장하도록 코드 구성하기
         if self.is_debug:
@@ -428,7 +422,7 @@ def test_vive_tracker():
     node.get_logger().info("vive tracker is started!")
 
     node.get_logger().info(f"wait for 5 seconds")
-    time.sleep(10)
+    time.sleep(5)
 
     start_time = time.time()
     while time.time() - start_time < 5:

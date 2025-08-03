@@ -26,8 +26,8 @@ from meloha.constants import MOTOR_ID
 
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
-from dynamixel_sdk_custom_interfaces.msg import SetPosition
-from multi_dynamixel_interfaces.msg import MultiSetPosition
+# from dynamixel_sdk_custom_interfaces.msg import SetPosition
+# from multi_dynamixel_interfaces.msg import MultiSetPosition
 
 
 class Manipulator:
@@ -52,10 +52,11 @@ class Manipulator:
         self.joint_states: list = None # -> real robot
 
         # simulation 
-        # if side == 'left':
-        #     self.joint_states: list = [0.0, -0.6259112759506524, 0.6259050168378929]
-        # elif side == 'right':
-        #     self.joint_states: list = [0.0, 0.6259112759506524, -0.6259112759506524]
+        if side == 'left':
+            self.joint_states: list = [0.0, -0.6259112759506524, 0.6259050168378929]
+        elif side == 'right':
+            self.joint_states: list = [0.0, 0.6259112759506524, -0.6259112759506524]
+        self.initial_ee_position = None
         self.current_ee_position = None
 
         self.js_mutex = Lock()
@@ -67,22 +68,22 @@ class Manipulator:
 
         cb_group_manipulator = ReentrantCallbackGroup()
 
-        self.pub_single = self.node.create_publisher(
-            msg_type=SetPosition,
-            topic="/set_position",
-            qos_profile=10,
-            callback_group=cb_group_manipulator,
-        )
-        node.get_logger().info(
-            f"Manipulator follower {side} single joint command publisher is created!"
-        )
+        # self.pub_single = self.node.create_publisher(
+        #     msg_type=SetPosition,
+        #     topic="/set_position",
+        #     qos_profile=10,
+        #     callback_group=cb_group_manipulator,
+        # )
+        # node.get_logger().info(
+        #     f"Manipulator follower {side} single joint command publisher is created!"
+        # )
 
-        self.pub_group = self.node.create_publisher(
-            msg_type=MultiSetPosition,
-            topic="/multi_set_position",
-            qos_profile=10,
-            callback_group=cb_group_manipulator,
-        )
+        # self.pub_group = self.node.create_publisher(
+        #     msg_type=MultiSetPosition,
+        #     topic="/multi_set_position",
+        #     qos_profile=10,
+        #     callback_group=cb_group_manipulator,
+        # )
         node.get_logger().info(
             f"Manipulator follower {side} joint commands publisher is created!"
         )
@@ -105,7 +106,8 @@ class Manipulator:
         while self.joint_states is None and rclpy.ok():
             rclpy.spin_once(self.node)
         self.node.get_logger().debug("Found joint states. Continuing...")
-        self.current_ee_position = self._solve_fk(self.joint_states)
+        self.initial_ee_position = self._solve_fk(self.joint_states)
+        self.current_ee_position = self.initial_ee_position
         node.get_logger().info(
             f"Manipurator {self.side} is located in {self.current_ee_position}"
         )
