@@ -191,7 +191,7 @@ class ViveTracker:
         self.initial_position: np.ndarray = None
         self.current_position: np.ndarray = None
         self.displacement: np.ndarray = None
-        self.button: bool = False # Whether the Vive Tracker button has been pressed
+        self.button: bool = True # Whether the Vive Tracker button has been pressed
 
         # VIVE Tracker Module Initialization
         self.tf_buffer = Buffer()

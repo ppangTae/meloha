@@ -53,6 +53,7 @@ def capture_one_episode(
     overwrite,
 ):
     print(f'Dataset name: {dataset_name}')
+    print_countdown("DATACOLLECTION START")
 
     node = create_meloha_global_node('meloha')
 
@@ -82,7 +83,7 @@ def capture_one_episode(
         print(f'Dataset already exist at \n{dataset_path}\nHint: set overwrite to True.')
         exit()
 
-    print_countdown("DATACOLLECTION START")
+    time.sleep(0.2) # dynamixel에서 joint정보를 보내기까지 대기(안하면 reset에서 None type error발생)
 
     # Data collection
     obs = env.reset()
@@ -195,6 +196,7 @@ def capture_one_episode(
         _ = root.create_dataset('action', (max_timesteps, 6))
 
         for name, array in data_dict.items():
+            print(name)
             root[name][...] = array
 
         if COMPRESS:

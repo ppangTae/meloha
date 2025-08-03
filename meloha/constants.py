@@ -21,8 +21,8 @@ LEFT_ARM_JOINT_NAMES = ['joint_1_left', 'joint_2_left', 'joint_3_left']
 RIGHT_ARM_JOINT_NAMES = ['joint_1_right', 'joint_2_right', 'joint_3_right']
 JOINT_NAMES = ['joint_1', 'joint_2', 'joint_3']
 MOTOR_ID = {'left' : [5, 6, 7], 'right' : [0 ,1 ,3]}
-LEFT_ARM_START_POSE = [0, -100000, 200000] # ROBOTIS MOTOR COMMAND. min:-501923(-pi), max: 501923(pi)
-RIGHT_ARM_START_POSE = [0, 100000, -200000]
+LEFT_ARM_START_POSE = [0, -100000, 100000] # ROBOTIS MOTOR COMMAND. min:-501923(-pi), max: 501923(pi)
+RIGHT_ARM_START_POSE = [0, 100000, -100000]
 
 ### Real hardware task configurations
 TASK_CONFIGS = {

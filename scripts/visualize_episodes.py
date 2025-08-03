@@ -47,7 +47,7 @@ def load_hdf5(dataset_dir, dataset_name):
 def main(args):
     dataset_dir = args['dataset_dir']
     episode_idx = args['episode_idx']
-    dataset_name = f'episode_{episode_idx}_compressed'
+    dataset_name = f'episode_{episode_idx}'
 
     qpos, action, image_dict = load_hdf5(dataset_dir, dataset_name)
     print('hdf5 loaded!')

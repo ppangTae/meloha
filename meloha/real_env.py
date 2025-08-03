@@ -143,7 +143,7 @@ def get_action(
     follower_bot_left: Manipulator,
     follower_bot_right: Manipulator,
 ):
-    moving_scale = 3.0
+    moving_scale = 1.5
     left_displacement = moving_scale * tracker_left.displacement
     right_displacement = moving_scale * tracker_right.displacement
 
@@ -152,19 +152,13 @@ def get_action(
     right_displacement[0] = -right_displacement[0]
     right_displacement[1] = -right_displacement[1]
 
-    left_ee_target = follower_bot_left.current_ee_position + left_displacement
-    right_ee_target = follower_bot_right.current_ee_position + right_displacement
+    left_ee_target = follower_bot_left.initial_ee_position + left_displacement
+    right_ee_target = follower_bot_right.initial_ee_position + right_displacement
 
     left_ik_success, left_action = follower_bot_left.solve_ik(left_ee_target)
     right_ik_success, right_action = follower_bot_right.solve_ik(right_ee_target)
 
-    if left_ik_success is False or right_ik_success is False:
-        action = np.concatenate([
-            follower_bot_left.joint_states,
-            follower_bot_right.joint_states
-        ])
-    else:
-        action = np.concatenate([left_action, right_action])
+    action = np.concatenate([left_action, right_action])
 
     return action
 

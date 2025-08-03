@@ -62,7 +62,7 @@ def main(args) -> None:
     robot_startup(node)
 
     while rclpy.ok():
-        moving_scale = 2.0
+        moving_scale = 1.5
         left_displacement = moving_scale * tracker_left.displacement
         right_displacement = moving_scale * tracker_right.displacement
 
@@ -96,17 +96,11 @@ def main(args) -> None:
                 action = list(action)
                 follower_bot_left.set_joint_positions(action[:3])
                 follower_bot_right.set_joint_positions(action[3:])
-                
-                # if left_ik_success:
-                #     follower_bot_left.current_ee_position = left_ee_target
-                # if right_ik_success:
-                #     follower_bot_right.current_ee_position = right_ee_target
 
         time.sleep(DT)
-        # time.sleep(0.1) # ! 테스트를 위해 임의로 조정
 
-        # if not tracker_right.button:
-        #     break
+        if not tracker_right.button:
+            break
     robot_shutdown(node)
 
 if __name__ == '__main__':
