@@ -26,8 +26,8 @@ from meloha.constants import MOTOR_ID
 
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
-from dynamixel_sdk_custom_interfaces.msg import SetPosition
-from multi_dynamixel_interfaces.msg import MultiSetPosition
+# from dynamixel_sdk_custom_interfaces.msg import SetPosition
+# from multi_dynamixel_interfaces.msg import MultiSetPosition
 
 
 class Manipulator:
@@ -36,6 +36,7 @@ class Manipulator:
         self,
         side: str,
         is_debug: bool = False,
+        is_sim: bool = False,
         node: Node = None,
     ):
 
@@ -51,11 +52,11 @@ class Manipulator:
 
         self.joint_states: list = None # -> real robot
 
-        # simulation 
-        # if side == 'left':
-        #     self.joint_states: list = [0.0, -0.6259112759506524, 0.6259050168378929]
-        # elif side == 'right':
-        #     self.joint_states: list = [0.0, 0.6259112759506524, -0.6259112759506524]
+        if is_sim:
+            if side == 'left':
+                self.joint_states: list = [0.0, -0.6259112759506524, 0.6259050168378929]
+            elif side == 'right':
+                self.joint_states: list = [0.0, 0.6259112759506524, -0.6259112759506524]
         self.initial_ee_position = None
         self.current_ee_position = None
 
@@ -68,22 +69,22 @@ class Manipulator:
 
         cb_group_manipulator = ReentrantCallbackGroup()
 
-        self.pub_single = self.node.create_publisher(
-            msg_type=SetPosition,
-            topic="/set_position",
-            qos_profile=10,
-            callback_group=cb_group_manipulator,
-        )
-        node.get_logger().info(
-            f"Manipulator follower {side} single joint command publisher is created!"
-        )
+        # self.pub_single = self.node.create_publisher(
+        #     msg_type=SetPosition,
+        #     topic="/set_position",
+        #     qos_profile=10,
+        #     callback_group=cb_group_manipulator,
+        # )
+        # node.get_logger().info(
+        #     f"Manipulator follower {side} single joint command publisher is created!"
+        # )
 
-        self.pub_group = self.node.create_publisher(
-            msg_type=MultiSetPosition,
-            topic="/multi_set_position",
-            qos_profile=10,
-            callback_group=cb_group_manipulator,
-        )
+        # self.pub_group = self.node.create_publisher(
+        #     msg_type=MultiSetPosition,
+        #     topic="/multi_set_position",
+        #     qos_profile=10,
+        #     callback_group=cb_group_manipulator,
+        # )
         node.get_logger().info(
             f"Manipulator follower {side} joint commands publisher is created!"
         )

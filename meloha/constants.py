@@ -27,22 +27,6 @@ RIGHT_ARM_START_POSE = [0, 100000, -100000]
 ### Real hardware task configurations
 TASK_CONFIGS = {
 
-    ### Template
-    # 'aloha_template':{
-    #     'dataset_dir': [
-    #         DATA_DIR + '/aloha_template',
-    #         DATA_DIR + '/aloha_template_subtask',
-    #         DATA_DIR + '/aloha_template_other_subtask',
-    #     ], # only the first entry in dataset_dir is used for eval
-    #     'stats_dir': [
-    #         DATA_DIR + '/aloha_template',
-    #     ],
-    #     'sample_weights': [6, 1, 1],
-    #     'train_ratio': 0.99, # ratio of train data from the first dataset_dir
-    #     'episode_len': 1500,
-    #     'camera_names': ['cam_high', 'cam_left_wrist', 'cam_right_wrist']
-    # },
-
     'meloha_box_picking' : {
         'dataset_dir': DATA_DIR + '/meloha_box_picking',
         'episode_len' : 900,
